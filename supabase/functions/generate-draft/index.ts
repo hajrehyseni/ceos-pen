@@ -24,10 +24,10 @@ const PILLAR_LABELS: Record<string, string> = {
 };
 
 const PILLAR_TIMES: Record<string, string> = {
-  ai_agents: "08:30:00",
-  defence_training: "09:00:00",
-  academic_research: "08:00:00",
-  ceo_journey: "09:30:00",
+  ai_agents: "08:45:00",
+  defence_training: "08:30:00",
+  academic_research: "08:45:00",
+  ceo_journey: "09:00:00",
   curated_commentary: "10:00:00",
 };
 
