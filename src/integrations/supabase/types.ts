@@ -14,7 +14,196 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      agent_log: {
+        Row: {
+          action: string | null
+          api_cost_usd: number | null
+          created_at: string
+          details: Json | null
+          id: string
+          tokens_used: number | null
+        }
+        Insert: {
+          action?: string | null
+          api_cost_usd?: number | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          tokens_used?: number | null
+        }
+        Update: {
+          action?: string | null
+          api_cost_usd?: number | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          tokens_used?: number | null
+        }
+        Relationships: []
+      }
+      news_items: {
+        Row: {
+          collected_at: string
+          id: string
+          pillar_match: string | null
+          relevance_score: number | null
+          source: string | null
+          summary: string | null
+          title: string | null
+          url: string | null
+          used_in_post: string | null
+        }
+        Insert: {
+          collected_at?: string
+          id?: string
+          pillar_match?: string | null
+          relevance_score?: number | null
+          source?: string | null
+          summary?: string | null
+          title?: string | null
+          url?: string | null
+          used_in_post?: string | null
+        }
+        Update: {
+          collected_at?: string
+          id?: string
+          pillar_match?: string | null
+          relevance_score?: number | null
+          source?: string | null
+          summary?: string | null
+          title?: string | null
+          url?: string | null
+          used_in_post?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "news_items_used_in_post_fkey"
+            columns: ["used_in_post"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_metrics: {
+        Row: {
+          checked_at: string
+          comments: number | null
+          id: string
+          impressions: number | null
+          likes: number | null
+          post_id: string
+          profile_views: number | null
+          reposts: number | null
+        }
+        Insert: {
+          checked_at?: string
+          comments?: number | null
+          id?: string
+          impressions?: number | null
+          likes?: number | null
+          post_id: string
+          profile_views?: number | null
+          reposts?: number | null
+        }
+        Update: {
+          checked_at?: string
+          comments?: number | null
+          id?: string
+          impressions?: number | null
+          likes?: number | null
+          post_id?: string
+          profile_views?: number | null
+          reposts?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_metrics_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      posts: {
+        Row: {
+          approved_at: string | null
+          content: string
+          created_at: string
+          edit_notes: string | null
+          engagement_estimate: string | null
+          format: string
+          id: string
+          pillar: string
+          published_at: string | null
+          rejected_at: string | null
+          rejection_reason: string | null
+          source_material: Json | null
+          status: string
+          suggested_time: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          content: string
+          created_at?: string
+          edit_notes?: string | null
+          engagement_estimate?: string | null
+          format?: string
+          id?: string
+          pillar: string
+          published_at?: string | null
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          source_material?: Json | null
+          status?: string
+          suggested_time?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          content?: string
+          created_at?: string
+          edit_notes?: string | null
+          engagement_estimate?: string | null
+          format?: string
+          id?: string
+          pillar?: string
+          published_at?: string | null
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          source_material?: Json | null
+          status?: string
+          suggested_time?: string | null
+        }
+        Relationships: []
+      }
+      voice_samples: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          performance_rating: number | null
+          source: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          performance_rating?: number | null
+          source?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          performance_rating?: number | null
+          source?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
