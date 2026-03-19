@@ -7,8 +7,9 @@ import { DraftQueue } from "@/components/DraftQueue";
 import { SidebarPanel } from "@/components/SidebarPanel";
 import { PublishedView } from "@/components/PublishedView";
 import { AnalyticsView } from "@/components/AnalyticsView";
+import { SettingsPage } from "@/components/SettingsPage";
 
-type Tab = "drafts" | "published" | "analytics";
+type Tab = "drafts" | "published" | "analytics" | "settings";
 
 export default function Index() {
   const [authenticated, setAuthenticated] = useState(
@@ -37,6 +38,13 @@ export default function Index() {
     if (authenticated) fetchData();
   }, [authenticated, fetchData]);
 
+  // Auto-refresh every 60 seconds
+  useEffect(() => {
+    if (!authenticated) return;
+    const interval = setInterval(fetchData, 60000);
+    return () => clearInterval(interval);
+  }, [authenticated, fetchData]);
+
   if (!authenticated) {
     return <PasswordGate onAuthenticated={() => setAuthenticated(true)} />;
   }
@@ -60,48 +68,60 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-background">
-      <HeaderBar weeklyCount={weeklyCount} />
+      <HeaderBar
+        weeklyCount={weeklyCount}
+        onSettingsClick={() => setActiveTab("settings")}
+        onDataRefresh={fetchData}
+      />
 
-      {/* Tab bar */}
-      <div className="max-w-screen-2xl mx-auto px-6 pt-6">
-        <div className="flex gap-1 p-1 bg-secondary/50 rounded-lg w-fit">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === tab.key
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+      {activeTab === "settings" ? (
+        <div className="max-w-screen-2xl mx-auto px-6 py-6">
+          <SettingsPage onBack={() => setActiveTab("drafts")} />
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Tab bar */}
+          <div className="max-w-screen-2xl mx-auto px-6 pt-6">
+            <div className="flex gap-1 p-1 bg-secondary/50 rounded-lg w-fit">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === tab.key
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-      {/* Content */}
-      <div className="max-w-screen-2xl mx-auto px-6 py-6">
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          {/* Content */}
+          <div className="max-w-screen-2xl mx-auto px-6 py-6">
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : activeTab === "drafts" ? (
+              <div className="flex flex-col lg:flex-row gap-6">
+                <div className="flex-1 lg:w-[70%]">
+                  <DraftQueue posts={posts} onUpdate={fetchData} />
+                </div>
+                <div className="lg:w-[30%]">
+                  <SidebarPanel posts={posts} metrics={metrics} agentLogs={agentLogs} />
+                </div>
+              </div>
+            ) : activeTab === "published" ? (
+              <PublishedView posts={posts} metrics={metrics} />
+            ) : (
+              <AnalyticsView posts={posts} metrics={metrics} agentLogs={agentLogs} />
+            )}
           </div>
-        ) : activeTab === "drafts" ? (
-          <div className="flex flex-col lg:flex-row gap-6">
-            <div className="flex-1 lg:w-[70%]">
-              <DraftQueue posts={posts} onUpdate={fetchData} />
-            </div>
-            <div className="lg:w-[30%]">
-              <SidebarPanel posts={posts} metrics={metrics} agentLogs={agentLogs} />
-            </div>
-          </div>
-        ) : activeTab === "published" ? (
-          <PublishedView posts={posts} metrics={metrics} />
-        ) : (
-          <AnalyticsView posts={posts} metrics={metrics} agentLogs={agentLogs} />
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }

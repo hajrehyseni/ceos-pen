@@ -4,7 +4,7 @@ import { PILLARS, PillarKey } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Check, Pencil, X, Copy, Send, ChevronDown, ChevronUp, Clock } from "lucide-react";
+import { Check, Pencil, X, Copy, Send, ChevronDown, ChevronUp, Clock, Linkedin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -74,7 +74,7 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
     toast({ title: "Copied to clipboard" });
   };
 
-  const handlePublish = async () => {
+  const handleMarkPublished = async () => {
     setLoading(true);
     await supabase
       .from("posts")
@@ -82,6 +82,22 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
       .eq("id", post.id);
     toast({ title: "Post marked as published" });
     onUpdate();
+    setLoading(false);
+  };
+
+  const handlePublishLinkedIn = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("publish-to-linkedin", {
+        body: { post_id: post.id },
+      });
+      if (error) throw error;
+      if (data?.status === "error") throw new Error(data.error);
+      toast({ title: "Published to LinkedIn!", description: "Post is now live." });
+      onUpdate();
+    } catch (e: any) {
+      toast({ title: "LinkedIn publish failed", description: e.message, variant: "destructive" });
+    }
     setLoading(false);
   };
 
@@ -175,7 +191,7 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
         </div>
       )}
 
-      {/* Action buttons */}
+      {/* Action buttons — Draft */}
       {post.status === "draft" && !editing && !rejecting && (
         <div className="flex gap-2 pt-2 border-t border-border">
           <Button size="sm" className="bg-success hover:bg-success/90 text-success-foreground" onClick={handleApprove} disabled={loading}>
@@ -190,14 +206,22 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
         </div>
       )}
 
-      {/* Post-approval actions */}
+      {/* Action buttons — Approved */}
       {post.status === "approved" && (
         <div className="flex gap-2 pt-2 border-t border-border">
           <Button size="sm" variant="outline" onClick={handleCopy}>
-            <Copy className="w-4 h-4 mr-1" /> Copy to Clipboard
+            <Copy className="w-4 h-4 mr-1" /> Copy
           </Button>
-          <Button size="sm" className="bg-success hover:bg-success/90 text-success-foreground" onClick={handlePublish} disabled={loading}>
-            <Send className="w-4 h-4 mr-1" /> Mark as Published
+          <Button
+            size="sm"
+            className="bg-[hsl(201,100%,35%)] hover:bg-[hsl(201,100%,30%)] text-white"
+            onClick={handlePublishLinkedIn}
+            disabled={loading}
+          >
+            <Linkedin className="w-4 h-4 mr-1" /> Publish to LinkedIn
+          </Button>
+          <Button size="sm" className="bg-success hover:bg-success/90 text-success-foreground" onClick={handleMarkPublished} disabled={loading}>
+            <Send className="w-4 h-4 mr-1" /> Mark Published
           </Button>
         </div>
       )}
