@@ -19,7 +19,7 @@ export function DraftQueue({ posts, onUpdate }: DraftQueueProps) {
         <div>
           <p className="text-foreground font-medium">No drafts waiting</p>
           <p className="text-sm text-muted-foreground mt-1">
-            Your ghostwriter runs at 6:00 AM UK time.
+            Your ghostwriter runs at 7:30 AM UTC on weekdays.
           </p>
         </div>
       </div>
