@@ -1,1 +1,7 @@
 project_id = "flegocstyduybkueffjq"
+
+[functions.generate-draft]
+verify_jwt = false
+
+[functions.verify-password]
+verify_jwt = false
