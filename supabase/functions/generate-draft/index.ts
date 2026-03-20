@@ -8,11 +8,13 @@ const corsHeaders = {
 };
 
 const DAY_PILLARS: Record<number, string> = {
-  1: "ai_agents",
-  2: "defence_training",
-  3: "academic_research",
-  4: "ceo_journey",
-  5: "curated_commentary",
+  0: "ceo_journey", // Sunday
+  1: "ai_agents", // Monday
+  2: "defence_training", // Tuesday
+  3: "academic_research", // Wednesday
+  4: "ceo_journey", // Thursday
+  5: "curated_commentary", // Friday
+  6: "curated_commentary", // Saturday
 };
 
 const PILLAR_LABELS: Record<string, string> = {
@@ -23,12 +25,14 @@ const PILLAR_LABELS: Record<string, string> = {
   curated_commentary: "Curated Commentary",
 };
 
-const PILLAR_TIMES: Record<string, string> = {
-  ai_agents: "08:45:00",
-  defence_training: "08:30:00",
-  academic_research: "08:45:00",
-  ceo_journey: "09:00:00",
-  curated_commentary: "10:00:00",
+const DAY_SUGGESTED_TIMES: Record<number, string> = {
+  0: "11:00:00", // Sunday
+  1: "08:45:00", // Monday
+  2: "08:30:00", // Tuesday
+  3: "08:45:00", // Wednesday
+  4: "09:00:00", // Thursday
+  5: "10:00:00", // Friday
+  6: "10:30:00", // Saturday
 };
 
 const SYSTEM_PROMPT = `You are Hajre's LinkedIn ghostwriter. Draft LinkedIn posts in his voice: British-warm, slightly cheeky, intellectually rigorous. Structure every post as: 1) One punchy surprising hook line 2) Twist or context on the next line 3) Full narrative with specific names, numbers, sources cited inline like (Forbes, 2026) 4) Bullet-point takeaways starting with 'For anyone building...' or 'Here is what this means...' 5) Direct engagement question to the reader 6) ALWAYS end with 'Ta-ta' followed by the 🙃 emoji on its own line. Posts must be 300-600 words. Never use hashtags. Never use these phrases: excited to share, thrilled to announce, game-changer, let that sink in, leveraging AI, who else agrees, buckle up. Output ONLY the post text.`;
@@ -43,18 +47,13 @@ serve(async (req) => {
   }
 
   try {
-    // 1. Check day of week
+    // 1. Check day of week and determine pillar
     const now = new Date();
     const dayOfWeek = now.getDay(); // 0=Sun, 6=Sat
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      return new Response(
-        JSON.stringify({ status: "skipped", reason: "Weekend — no drafts generated." }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
     // 2. Determine pillar
     const pillar = DAY_PILLARS[dayOfWeek];
+    if (!pillar) throw new Error(`No content pillar configured for day ${dayOfWeek}`);
     const pillarLabel = PILLAR_LABELS[pillar];
 
     const CLAUDE_API_KEY = Deno.env.get("CLAUDE_API_KEY");
@@ -181,7 +180,7 @@ Write a LinkedIn post for the ${pillarLabel} pillar.`;
         pillar,
         status: "draft",
         format: "text",
-        suggested_time: PILLAR_TIMES[pillar] ?? "09:00:00",
+         suggested_time: DAY_SUGGESTED_TIMES[dayOfWeek] ?? "09:00:00",
         engagement_estimate: "medium",
         source_material: sourceMaterial,
       })
