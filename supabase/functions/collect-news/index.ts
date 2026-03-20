@@ -8,11 +8,13 @@ const corsHeaders = {
 };
 
 const DAY_PILLARS: Record<number, string> = {
-  1: "ai_agents",
-  2: "defence_training",
-  3: "academic_research",
-  4: "ceo_journey",
-  5: "curated_commentary",
+  0: "ceo_journey", // Sunday
+  1: "ai_agents", // Monday
+  2: "defence_training", // Tuesday
+  3: "academic_research", // Wednesday
+  4: "ceo_journey", // Thursday
+  5: "curated_commentary", // Friday
+  6: "curated_commentary", // Saturday
 };
 
 const PILLAR_LABELS: Record<string, string> = {
@@ -76,9 +78,9 @@ serve(async (req) => {
     const now = new Date();
     const dayOfWeek = now.getDay();
 
-    // Determine pillar — use today's if weekday, otherwise Monday's
-    const effectiveDay = dayOfWeek === 0 || dayOfWeek === 6 ? 1 : dayOfWeek;
-    const pillar = DAY_PILLARS[effectiveDay];
+    // Determine pillar for all 7 days
+    const pillar = DAY_PILLARS[dayOfWeek];
+    if (!pillar) throw new Error(`No content pillar configured for day ${dayOfWeek}`);
     const pillarLabel = PILLAR_LABELS[pillar];
 
     const CLAUDE_API_KEY = Deno.env.get("CLAUDE_API_KEY");
