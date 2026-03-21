@@ -46,6 +46,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   };
 
   const handleSaveToken = () => saveSetting("linkedin_access_token", linkedinToken);
+  const handleSaveUrn = () => saveSetting("linkedin_person_urn", personUrn);
 
   const handleToggleAutoPublish = async (checked: boolean) => {
     setAutoPublish(checked);
