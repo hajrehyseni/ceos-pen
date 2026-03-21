@@ -7,11 +7,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const linkedInVersionHeaders = {
-  "LinkedIn-Version": "202401",
-  "X-Restli-Protocol-Version": "2.0.0",
-};
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -36,11 +31,9 @@ serve(async (req) => {
       );
     }
 
-    // Get current UTC time
     const now = new Date();
     const currentTime = `${String(now.getUTCHours()).padStart(2, "0")}:${String(now.getUTCMinutes()).padStart(2, "0")}:00`;
 
-    // Fetch approved posts where suggested_time has passed
     const { data: approvedPosts } = await supabase
       .from("posts")
       .select("*")
@@ -61,7 +54,7 @@ serve(async (req) => {
       .eq("key", "linkedin_access_token")
       .single();
 
-    const accessToken = tokenSetting?.value;
+    const accessToken = tokenSetting?.value?.trim();
     if (!accessToken) {
       return new Response(
         JSON.stringify({ status: "error", error: "LinkedIn access token not configured" }),
@@ -69,40 +62,44 @@ serve(async (req) => {
       );
     }
 
-    // Get person URN
-    const profileRes = await fetch("https://api.linkedin.com/v2/me", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        ...linkedInVersionHeaders,
-      },
-    });
-    if (!profileRes.ok) throw new Error("Failed to fetch LinkedIn profile");
-    const profile = await profileRes.json();
-    const personUrn = `urn:li:person:${profile.id}`;
+    // Get person URN from settings or env
+    const { data: urnSetting } = await supabase
+      .from("settings")
+      .select("value")
+      .eq("key", "linkedin_person_urn")
+      .maybeSingle();
+
+    const personUrn = urnSetting?.value?.trim() || Deno.env.get("LINKEDIN_PERSON_URN") || "";
+    if (!personUrn) {
+      return new Response(
+        JSON.stringify({ status: "error", error: "LinkedIn person URN not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const results = [];
 
     for (const post of approvedPosts) {
       try {
-        const linkedinRes = await fetch("https://api.linkedin.com/v2/ugcPosts", {
+        const linkedinRes = await fetch("https://api.linkedin.com/rest/posts", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
+            "LinkedIn-Version": "202401",
             "X-Restli-Protocol-Version": "2.0.0",
           },
           body: JSON.stringify({
             author: personUrn,
+            commentary: post.content,
+            visibility: "PUBLIC",
+            distribution: {
+              feedDistribution: "MAIN_FEED",
+              targetEntities: [],
+              thirdPartyDistributionChannels: [],
+            },
             lifecycleState: "PUBLISHED",
-            specificContent: {
-              "com.linkedin.ugc.ShareContent": {
-                shareCommentary: { text: post.content },
-                shareMediaCategory: "NONE",
-              },
-            },
-            visibility: {
-              "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
-            },
+            isReshareDisabledByAuthor: false,
           }),
         });
 
@@ -113,26 +110,19 @@ serve(async (req) => {
           continue;
         }
 
-        const linkedinData = await linkedinRes.json();
+        const linkedinId = linkedinRes.headers.get("x-restli-id") || null;
         const publishedAt = new Date().toISOString();
 
-        await supabase
-          .from("posts")
-          .update({ status: "published", published_at: publishedAt })
-          .eq("id", post.id);
+        await supabase.from("posts").update({ status: "published", published_at: publishedAt }).eq("id", post.id);
 
         await supabase.from("agent_log").insert({
           action: "auto_published",
           api_cost_usd: 0,
           tokens_used: 0,
-          details: {
-            post_id: post.id,
-            linkedin_id: linkedinData.id,
-            published_at: publishedAt,
-          },
+          details: { post_id: post.id, linkedin_id: linkedinId, published_at: publishedAt },
         });
 
-        results.push({ post_id: post.id, status: "published", linkedin_id: linkedinData.id });
+        results.push({ post_id: post.id, status: "published", linkedin_id: linkedinId });
       } catch (err) {
         console.error(`Error publishing post ${post.id}:`, err);
         results.push({ post_id: post.id, status: "failed", error: String(err) });
