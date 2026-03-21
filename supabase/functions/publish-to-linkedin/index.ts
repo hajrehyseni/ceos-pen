@@ -7,6 +7,20 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const safeJsonParse = (value: string) => {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+};
+
+const normalizeToken = (raw: string | null | undefined) => {
+  if (!raw) return "";
+  const trimmed = raw.trim().replace(/^"|"$/g, "");
+  return trimmed.startsWith("Bearer ") ? trimmed.slice(7).trim() : trimmed;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -31,60 +45,90 @@ serve(async (req) => {
     if (postError || !post) throw new Error("Post not found");
     if (post.status !== "approved") throw new Error("Post must be approved before publishing");
 
-    // Fetch LinkedIn access token from settings
-    const { data: tokenSetting } = await supabase
+    // Fetch LinkedIn access token from settings (latest value)
+    const { data: tokenSetting, error: tokenError } = await supabase
       .from("settings")
-      .select("value")
+      .select("value, updated_at")
       .eq("key", "linkedin_access_token")
-      .single();
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    const accessToken = tokenSetting?.value;
+    if (tokenError) {
+      throw new Error(`Failed to read LinkedIn token from settings: ${tokenError.message}`);
+    }
+
+    const accessToken = normalizeToken(tokenSetting?.value);
     if (!accessToken) throw new Error("LinkedIn access token not configured. Go to Settings to add it.");
 
-    // Post to LinkedIn API v2 (ugcPosts)
-    // Note: You need your LinkedIn Person URN. We'll fetch it from the token.
-    // First get the user's profile to get the person URN
-    const profileRes = await fetch("https://api.linkedin.com/v2/me", {
+    console.log("LinkedIn token loaded from settings", {
+      hasToken: Boolean(accessToken),
+      length: accessToken.length,
+      storedAt: tokenSetting?.updated_at ?? null,
+    });
+
+    // Resolve person ID from userinfo endpoint
+    const userinfoRes = await fetch("https://api.linkedin.com/v2/userinfo", {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
-    if (!profileRes.ok) {
-      const errText = await profileRes.text();
-      throw new Error(`LinkedIn profile fetch failed: ${errText}`);
+    const userinfoText = await userinfoRes.text();
+    if (!userinfoRes.ok) {
+      console.error("LinkedIn userinfo failed", {
+        status: userinfoRes.status,
+        body: userinfoText,
+      });
+      throw new Error(`LinkedIn userinfo failed [${userinfoRes.status}]: ${userinfoText}`);
     }
 
-    const profile = await profileRes.json();
-    const personUrn = `urn:li:person:${profile.id}`;
+    const userinfo = safeJsonParse(userinfoText);
+    const personId = userinfo?.sub;
+    if (!personId) {
+      console.error("LinkedIn userinfo missing sub", { body: userinfoText });
+      throw new Error("LinkedIn userinfo response missing person id (sub)");
+    }
 
-    // Create the LinkedIn post
-    const linkedinRes = await fetch("https://api.linkedin.com/v2/ugcPosts", {
+    const personUrn = `urn:li:person:${personId}`;
+
+    // Create post using LinkedIn Posts API
+    const linkedinRes = await fetch("https://api.linkedin.com/rest/posts", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
+        "LinkedIn-Version": "202401",
         "X-Restli-Protocol-Version": "2.0.0",
       },
       body: JSON.stringify({
         author: personUrn,
+        commentary: post.content,
+        visibility: "PUBLIC",
+        distribution: {
+          feedDistribution: "MAIN_FEED",
+          targetEntities: [],
+          thirdPartyDistributionChannels: [],
+        },
         lifecycleState: "PUBLISHED",
-        specificContent: {
-          "com.linkedin.ugc.ShareContent": {
-            shareCommentary: { text: post.content },
-            shareMediaCategory: "NONE",
-          },
-        },
-        visibility: {
-          "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
-        },
+        isReshareDisabledByAuthor: false,
       }),
     });
 
+    const linkedinText = await linkedinRes.text();
+
     if (!linkedinRes.ok) {
-      const errText = await linkedinRes.text();
-      throw new Error(`LinkedIn publish failed [${linkedinRes.status}]: ${errText}`);
+      console.error("LinkedIn publish failed", {
+        status: linkedinRes.status,
+        body: linkedinText,
+      });
+      throw new Error(`LinkedIn publish failed [${linkedinRes.status}]: ${linkedinText}`);
     }
 
-    const linkedinData = await linkedinRes.json();
+    const linkedinData = safeJsonParse(linkedinText) ?? {};
+    const linkedinId =
+      linkedinRes.headers.get("x-restli-id") ||
+      (typeof linkedinData === "object" && linkedinData !== null
+        ? (linkedinData as { id?: string }).id ?? null
+        : null);
 
     // Update post status
     const now = new Date().toISOString();
@@ -100,13 +144,13 @@ serve(async (req) => {
       tokens_used: 0,
       details: {
         post_id,
-        linkedin_id: linkedinData.id,
+        linkedin_id: linkedinId,
         published_at: now,
       },
     });
 
     return new Response(
-      JSON.stringify({ status: "success", post_id, linkedin_id: linkedinData.id }),
+      JSON.stringify({ status: "success", post_id, linkedin_id: linkedinId }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
