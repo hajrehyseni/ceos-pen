@@ -7,6 +7,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const linkedInVersionHeaders = {
+  "LinkedIn-Version": "202401",
+  "X-Restli-Protocol-Version": "2.0.0",
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -66,7 +71,10 @@ serve(async (req) => {
 
     // Get person URN
     const profileRes = await fetch("https://api.linkedin.com/v2/me", {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        ...linkedInVersionHeaders,
+      },
     });
     if (!profileRes.ok) throw new Error("Failed to fetch LinkedIn profile");
     const profile = await profileRes.json();
