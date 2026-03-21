@@ -84,9 +84,16 @@ serve(async (req) => {
     });
 
     const linkedinText = await linkedinRes.text();
+    const linkedinHeaders: Record<string, string> = {};
+    linkedinRes.headers.forEach((v, k) => { linkedinHeaders[k] = v; });
+
+    console.log("LinkedIn API response", {
+      status: linkedinRes.status,
+      headers: linkedinHeaders,
+      body: linkedinText,
+    });
 
     if (!linkedinRes.ok) {
-      console.error("LinkedIn publish failed", { status: linkedinRes.status, body: linkedinText });
       throw new Error(`LinkedIn publish failed [${linkedinRes.status}]: ${linkedinText}`);
     }
 
