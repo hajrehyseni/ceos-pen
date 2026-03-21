@@ -21,6 +21,11 @@ const normalizeToken = (raw: string | null | undefined) => {
   return trimmed.startsWith("Bearer ") ? trimmed.slice(7).trim() : trimmed;
 };
 
+const linkedInVersionHeaders = {
+  "LinkedIn-Version": "202401",
+  "X-Restli-Protocol-Version": "2.0.0",
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -69,7 +74,10 @@ serve(async (req) => {
 
     // Resolve person ID from /v2/me endpoint (works with w_member_social scope)
     const userinfoRes = await fetch("https://api.linkedin.com/v2/me", {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        ...linkedInVersionHeaders,
+      },
     });
 
     const userinfoText = await userinfoRes.text();
@@ -96,8 +104,7 @@ serve(async (req) => {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
-        "LinkedIn-Version": "202401",
-        "X-Restli-Protocol-Version": "2.0.0",
+        ...linkedInVersionHeaders,
       },
       body: JSON.stringify({
         author: personUrn,
