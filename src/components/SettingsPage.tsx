@@ -95,6 +95,25 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
         {linkedinToken && (
           <p className="text-xs text-success">✓ Token configured</p>
         )}
+        <div className="pt-2 border-t border-border space-y-2">
+          <p className="text-sm text-muted-foreground">
+            Your LinkedIn Person URN (e.g. urn:li:person:123456). Used as the post author.
+          </p>
+          <div className="flex gap-2">
+            <Input
+              placeholder="urn:li:person:YOUR_ID"
+              value={personUrn}
+              onChange={(e) => setPersonUrn(e.target.value)}
+              className="bg-secondary border-border flex-1"
+            />
+            <Button onClick={handleSaveUrn} disabled={saving}>
+              <Save className="w-4 h-4 mr-1" /> Save
+            </Button>
+          </div>
+          {personUrn && (
+            <p className="text-xs text-success">✓ Person URN configured</p>
+          )}
+        </div>
       </div>
 
       {/* Auto-publish */}
