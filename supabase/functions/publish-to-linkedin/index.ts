@@ -67,25 +67,25 @@ serve(async (req) => {
       storedAt: tokenSetting?.updated_at ?? null,
     });
 
-    // Resolve person ID from userinfo endpoint
-    const userinfoRes = await fetch("https://api.linkedin.com/v2/userinfo", {
+    // Resolve person ID from /v2/me endpoint (works with w_member_social scope)
+    const userinfoRes = await fetch("https://api.linkedin.com/v2/me", {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     const userinfoText = await userinfoRes.text();
     if (!userinfoRes.ok) {
-      console.error("LinkedIn userinfo failed", {
+      console.error("LinkedIn /v2/me failed", {
         status: userinfoRes.status,
         body: userinfoText,
       });
-      throw new Error(`LinkedIn userinfo failed [${userinfoRes.status}]: ${userinfoText}`);
+      throw new Error(`LinkedIn /v2/me failed [${userinfoRes.status}]: ${userinfoText}`);
     }
 
-    const userinfo = safeJsonParse(userinfoText);
-    const personId = userinfo?.sub;
+    const profile = safeJsonParse(userinfoText);
+    const personId = profile?.id;
     if (!personId) {
-      console.error("LinkedIn userinfo missing sub", { body: userinfoText });
-      throw new Error("LinkedIn userinfo response missing person id (sub)");
+      console.error("LinkedIn /v2/me missing id", { body: userinfoText });
+      throw new Error("LinkedIn /v2/me response missing person id");
     }
 
     const personUrn = `urn:li:person:${personId}`;
