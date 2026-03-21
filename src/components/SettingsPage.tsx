@@ -28,6 +28,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     if (data) {
       for (const s of data) {
         if (s.key === "linkedin_access_token") setLinkedinToken(s.value || "");
+        if (s.key === "linkedin_person_urn") setPersonUrn(s.value || "");
         if (s.key === "auto_publish_enabled") setAutoPublish(s.value === "true");
       }
     }
