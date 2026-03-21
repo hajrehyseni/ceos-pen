@@ -13,6 +13,7 @@ interface SettingsPageProps {
 export function SettingsPage({ onBack }: SettingsPageProps) {
   const { toast } = useToast();
   const [linkedinToken, setLinkedinToken] = useState("");
+  const [personUrn, setPersonUrn] = useState("");
   const [autoPublish, setAutoPublish] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
