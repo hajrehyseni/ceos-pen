@@ -13,6 +13,27 @@ const normalizeToken = (raw: string | null | undefined) => {
   return trimmed.startsWith("Bearer ") ? trimmed.slice(7).trim() : trimmed;
 };
 
+function sanitizeForLinkedIn(text: string): string {
+  let s = text;
+  // Replace bullet point U+2022 with dash
+  s = s.replace(/\u2022/g, "-");
+  // Replace euro sign U+20AC with EUR
+  s = s.replace(/\u20AC/g, "EUR ");
+  // Replace left/right double quotation marks with straight quotes
+  s = s.replace(/[\u201C\u201D]/g, '"');
+  // Replace left/right single quotation marks and apostrophes with straight apostrophe
+  s = s.replace(/[\u2018\u2019]/g, "'");
+  // Replace em dash with double dash
+  s = s.replace(/\u2014/g, "--");
+  // Replace en dash with single dash
+  s = s.replace(/\u2013/g, "-");
+  // Replace ellipsis with three dots
+  s = s.replace(/\u2026/g, "...");
+  // Remove ALL emoji (Unicode ranges for emoji)
+  s = s.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}]/gu, "");
+  return s;
+}
+
 /** Resolve the author URN directly from the access token via LinkedIn APIs. */
 async function resolvePersonUrn(accessToken: string): Promise<string> {
   // Try /v2/userinfo first (OpenID Connect — returns 'sub' field)
@@ -115,6 +136,8 @@ serve(async (req) => {
 
     console.log("Publishing with person URN:", personUrn);
 
+    const sanitizedContent = sanitizeForLinkedIn(post.content);
+
     // Create post using LinkedIn Posts API
     const linkedinUrl = "https://api.linkedin.com/rest/posts";
     const linkedinRequestHeaders = {
@@ -125,7 +148,7 @@ serve(async (req) => {
     };
     const linkedinRequestBody = {
       author: personUrn,
-      commentary: post.content,
+      commentary: sanitizedContent,
       visibility: "PUBLIC",
       distribution: {
         feedDistribution: "MAIN_FEED",
@@ -147,9 +170,10 @@ serve(async (req) => {
 
     console.log("LinkedIn payload diagnostics", {
       post_content_length: post.content.length,
+      sanitized_content_length: sanitizedContent.length,
       request_json_length: serializedLinkedinBody.length,
-      content_first_50: post.content.slice(0, 50),
-      content_last_50: post.content.slice(-50),
+      content_first_50: sanitizedContent.slice(0, 50),
+      content_last_50: sanitizedContent.slice(-50),
     });
     console.log("LinkedIn payload JSON string", serializedLinkedinBody);
 
