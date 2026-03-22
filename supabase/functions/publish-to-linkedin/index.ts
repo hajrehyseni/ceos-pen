@@ -61,35 +61,48 @@ serve(async (req) => {
     console.log("Publishing with person URN:", personUrn);
 
     // Create post using LinkedIn Posts API
-    const linkedinRes = await fetch("https://api.linkedin.com/rest/posts", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-        "LinkedIn-Version": "202503",
-        "X-Restli-Protocol-Version": "2.0.0",
+    const linkedinUrl = "https://api.linkedin.com/rest/posts";
+    const linkedinRequestHeaders = {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      "LinkedIn-Version": "202503",
+      "X-Restli-Protocol-Version": "2.0.0",
+    };
+    const linkedinRequestBody = {
+      author: personUrn,
+      commentary: post.content,
+      visibility: "PUBLIC",
+      distribution: {
+        feedDistribution: "MAIN_FEED",
+        targetEntities: [],
+        thirdPartyDistributionChannels: [],
       },
-      body: JSON.stringify({
-        author: personUrn,
-        commentary: post.content,
-        visibility: "PUBLIC",
-        distribution: {
-          feedDistribution: "MAIN_FEED",
-          targetEntities: [],
-          thirdPartyDistributionChannels: [],
-        },
-        lifecycleState: "PUBLISHED",
-        isReshareDisabledByAuthor: false,
-      }),
+      lifecycleState: "PUBLISHED",
+      isReshareDisabledByAuthor: false,
+    };
+
+    console.log("LinkedIn API request", {
+      url: linkedinUrl,
+      method: "POST",
+      headers: linkedinRequestHeaders,
+      body: linkedinRequestBody,
+    });
+
+    const linkedinRes = await fetch(linkedinUrl, {
+      method: "POST",
+      headers: linkedinRequestHeaders,
+      body: JSON.stringify(linkedinRequestBody),
     });
 
     const linkedinText = await linkedinRes.text();
-    const linkedinHeaders: Record<string, string> = {};
-    linkedinRes.headers.forEach((v, k) => { linkedinHeaders[k] = v; });
+    const linkedinResponseHeaders: Record<string, string> = {};
+    linkedinRes.headers.forEach((v, k) => {
+      linkedinResponseHeaders[k] = v;
+    });
 
     console.log("LinkedIn API response", {
       status: linkedinRes.status,
-      headers: linkedinHeaders,
+      headers: linkedinResponseHeaders,
       body: linkedinText,
     });
 
