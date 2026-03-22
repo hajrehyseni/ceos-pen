@@ -86,7 +86,7 @@ serve(async (req) => {
           headers: {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
-            "LinkedIn-Version": "202402",
+            "LinkedIn-Version": "202603",
             "X-Restli-Protocol-Version": "2.0.0",
           },
           body: JSON.stringify({
