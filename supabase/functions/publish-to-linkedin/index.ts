@@ -20,8 +20,6 @@ async function resolvePersonUrn(accessToken: string): Promise<string> {
     const userinfoRes = await fetch("https://api.linkedin.com/v2/userinfo", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "LinkedIn-Version": "202503",
-        "X-Restli-Protocol-Version": "2.0.0",
       },
     });
     const userinfoText = await userinfoRes.text();
@@ -44,8 +42,6 @@ async function resolvePersonUrn(accessToken: string): Promise<string> {
     const meRes = await fetch("https://api.linkedin.com/v2/me", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "LinkedIn-Version": "202503",
-        "X-Restli-Protocol-Version": "2.0.0",
       },
     });
     const meText = await meRes.text();
@@ -124,7 +120,7 @@ serve(async (req) => {
     const linkedinRequestHeaders = {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
-      "LinkedIn-Version": "202503",
+      "LinkedIn-Version": "202603",
       "X-Restli-Protocol-Version": "2.0.0",
     };
     const linkedinRequestBody = {
