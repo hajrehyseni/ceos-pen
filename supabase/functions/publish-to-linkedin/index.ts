@@ -18,7 +18,11 @@ async function resolvePersonUrn(accessToken: string): Promise<string> {
   // Try /v2/userinfo first (OpenID Connect — returns 'sub' field)
   try {
     const userinfoRes = await fetch("https://api.linkedin.com/v2/userinfo", {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "LinkedIn-Version": "202503",
+        "X-Restli-Protocol-Version": "2.0.0",
+      },
     });
     const userinfoText = await userinfoRes.text();
     console.log("GET /v2/userinfo response", { status: userinfoRes.status, body: userinfoText });
@@ -38,7 +42,11 @@ async function resolvePersonUrn(accessToken: string): Promise<string> {
   // Fallback: /v2/me
   try {
     const meRes = await fetch("https://api.linkedin.com/v2/me", {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "LinkedIn-Version": "202503",
+        "X-Restli-Protocol-Version": "2.0.0",
+      },
     });
     const meText = await meRes.text();
     console.log("GET /v2/me response", { status: meRes.status, body: meText });
