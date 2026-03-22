@@ -136,6 +136,8 @@ serve(async (req) => {
       isReshareDisabledByAuthor: false,
     };
 
+    const serializedLinkedinBody = JSON.stringify(linkedinRequestBody);
+
     console.log("LinkedIn API request", {
       url: linkedinUrl,
       method: "POST",
@@ -143,10 +145,18 @@ serve(async (req) => {
       body: linkedinRequestBody,
     });
 
+    console.log("LinkedIn payload diagnostics", {
+      post_content_length: post.content.length,
+      request_json_length: serializedLinkedinBody.length,
+      content_first_50: post.content.slice(0, 50),
+      content_last_50: post.content.slice(-50),
+    });
+    console.log("LinkedIn payload JSON string", serializedLinkedinBody);
+
     const linkedinRes = await fetch(linkedinUrl, {
       method: "POST",
       headers: linkedinRequestHeaders,
-      body: JSON.stringify(linkedinRequestBody),
+      body: serializedLinkedinBody,
     });
 
     const linkedinText = await linkedinRes.text();
