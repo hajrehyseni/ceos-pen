@@ -1,0 +1,1 @@
+UPDATE posts SET status = 'approved', published_at = null WHERE id = '77d43f51-968b-4d1f-ae56-0a558923e688';

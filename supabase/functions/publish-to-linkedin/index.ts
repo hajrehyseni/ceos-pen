@@ -119,7 +119,7 @@ serve(async (req) => {
     const linkedinUrl = "https://api.linkedin.com/rest/posts";
     const linkedinRequestHeaders = {
       Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
+      "Content-Type": "application/json; charset=utf-8",
       "LinkedIn-Version": "202503",
       "X-Restli-Protocol-Version": "2.0.0",
     };
