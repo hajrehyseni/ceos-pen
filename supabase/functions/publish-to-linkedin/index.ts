@@ -13,6 +13,59 @@ const normalizeToken = (raw: string | null | undefined) => {
   return trimmed.startsWith("Bearer ") ? trimmed.slice(7).trim() : trimmed;
 };
 
+/** Resolve the author URN directly from the access token via LinkedIn APIs. */
+async function resolvePersonUrn(accessToken: string): Promise<string> {
+  // Try /v2/userinfo first (OpenID Connect — returns 'sub' field)
+  try {
+    const userinfoRes = await fetch("https://api.linkedin.com/v2/userinfo", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "LinkedIn-Version": "202503",
+        "X-Restli-Protocol-Version": "2.0.0",
+      },
+    });
+    const userinfoText = await userinfoRes.text();
+    console.log("GET /v2/userinfo response", { status: userinfoRes.status, body: userinfoText });
+
+    if (userinfoRes.ok) {
+      const data = JSON.parse(userinfoText);
+      if (data.sub) {
+        const urn = `urn:li:person:${data.sub}`;
+        console.log("Resolved person URN from /v2/userinfo:", urn);
+        return urn;
+      }
+    }
+  } catch (err) {
+    console.warn("/v2/userinfo failed:", err);
+  }
+
+  // Fallback: /v2/me
+  try {
+    const meRes = await fetch("https://api.linkedin.com/v2/me", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "LinkedIn-Version": "202503",
+        "X-Restli-Protocol-Version": "2.0.0",
+      },
+    });
+    const meText = await meRes.text();
+    console.log("GET /v2/me response", { status: meRes.status, body: meText });
+
+    if (meRes.ok) {
+      const data = JSON.parse(meText);
+      if (data.id) {
+        const urn = `urn:li:person:${data.id}`;
+        console.log("Resolved person URN from /v2/me:", urn);
+        return urn;
+      }
+    }
+  } catch (err) {
+    console.warn("/v2/me failed:", err);
+  }
+
+  return "";
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -48,15 +101,21 @@ serve(async (req) => {
     const accessToken = normalizeToken(tokenSetting?.value);
     if (!accessToken) throw new Error("LinkedIn access token not configured. Go to Settings to add it.");
 
-    // Resolve person URN: settings table first, then env var fallback
-    const { data: urnSetting } = await supabase
-      .from("settings")
-      .select("value")
-      .eq("key", "linkedin_person_urn")
-      .maybeSingle();
+    // Always resolve person URN from the token itself to prevent mismatches
+    let personUrn = await resolvePersonUrn(accessToken);
 
-    const personUrn = urnSetting?.value?.trim() || Deno.env.get("LINKEDIN_PERSON_URN") || "";
-    if (!personUrn) throw new Error("LinkedIn person URN not configured. Go to Settings to add it.");
+    // Fallback to stored URN only if API resolution fails entirely
+    if (!personUrn) {
+      const { data: urnSetting } = await supabase
+        .from("settings")
+        .select("value")
+        .eq("key", "linkedin_person_urn")
+        .maybeSingle();
+      personUrn = urnSetting?.value?.trim() || Deno.env.get("LINKEDIN_PERSON_URN") || "";
+      console.warn("Could not resolve URN from token — falling back to stored URN:", personUrn);
+    }
+
+    if (!personUrn) throw new Error("LinkedIn person URN could not be resolved. Go to Settings to add it.");
 
     console.log("Publishing with person URN:", personUrn);
 
@@ -120,11 +179,11 @@ serve(async (req) => {
       action: "linkedin_published",
       api_cost_usd: 0,
       tokens_used: 0,
-      details: { post_id, linkedin_id: linkedinId, published_at: now },
+      details: { post_id, linkedin_id: linkedinId, published_at: now, resolved_urn: personUrn },
     });
 
     return new Response(
-      JSON.stringify({ status: "success", post_id, linkedin_id: linkedinId }),
+      JSON.stringify({ status: "success", post_id, linkedin_id: linkedinId, resolved_urn: personUrn }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
