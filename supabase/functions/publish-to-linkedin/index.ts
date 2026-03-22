@@ -42,8 +42,6 @@ async function resolvePersonUrn(accessToken: string): Promise<string> {
     const meRes = await fetch("https://api.linkedin.com/v2/me", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "LinkedIn-Version": "202503",
-        "X-Restli-Protocol-Version": "2.0.0",
       },
     });
     const meText = await meRes.text();
