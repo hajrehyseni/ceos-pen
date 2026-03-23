@@ -116,7 +116,7 @@ serve(async (req) => {
 
     console.log("Publishing with person URN:", personUrn);
 
-    const sanitizedContent = sanitizeForLinkedIn(post.content);
+    const { sanitizedText: sanitizedContent, diagnostics: sanitizeDiagnostics } = sanitizeForLinkedIn(post.content);
 
     // Create post using LinkedIn Posts API
     const linkedinUrl = "https://api.linkedin.com/rest/posts";
@@ -151,6 +151,8 @@ serve(async (req) => {
     console.log("LinkedIn payload diagnostics", {
       post_content_length: post.content.length,
       sanitized_content_length: sanitizedContent.length,
+      non_ascii_removed_count: sanitizeDiagnostics.nonAsciiRemovedCount,
+      first_removed_hex_codes: sanitizeDiagnostics.firstRemovedHexCodes,
       request_json_length: serializedLinkedinBody.length,
       content_first_50: sanitizedContent.slice(0, 50),
       content_last_50: sanitizedContent.slice(-50),
