@@ -82,7 +82,15 @@ serve(async (req) => {
 
     for (const post of approvedPosts) {
       try {
-        const sanitizedContent = sanitizeForLinkedIn(post.content);
+        const { sanitizedText: sanitizedContent, diagnostics: sanitizeDiagnostics } = sanitizeForLinkedIn(post.content);
+
+        console.log("Auto-publish sanitization diagnostics", {
+          post_id: post.id,
+          original_content_length: sanitizeDiagnostics.originalLength,
+          sanitized_content_length: sanitizeDiagnostics.sanitizedLength,
+          non_ascii_removed_count: sanitizeDiagnostics.nonAsciiRemovedCount,
+          first_removed_hex_codes: sanitizeDiagnostics.firstRemovedHexCodes,
+        });
 
         const linkedinRes = await fetch("https://api.linkedin.com/rest/posts", {
           method: "POST",
