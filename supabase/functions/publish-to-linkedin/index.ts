@@ -14,55 +14,6 @@ const normalizeToken = (raw: string | null | undefined) => {
   return trimmed.startsWith("Bearer ") ? trimmed.slice(7).trim() : trimmed;
 };
 
-/** Resolve the author URN directly from the access token via LinkedIn APIs. */
-async function resolvePersonUrn(accessToken: string): Promise<string> {
-  // Try /v2/userinfo first (OpenID Connect — returns 'sub' field)
-  try {
-    const userinfoRes = await fetch("https://api.linkedin.com/v2/userinfo", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-    const userinfoText = await userinfoRes.text();
-    console.log("GET /v2/userinfo response", { status: userinfoRes.status, body: userinfoText });
-
-    if (userinfoRes.ok) {
-      const data = JSON.parse(userinfoText);
-      if (data.sub) {
-        const urn = `urn:li:person:${data.sub}`;
-        console.log("Resolved person URN from /v2/userinfo:", urn);
-        return urn;
-      }
-    }
-  } catch (err) {
-    console.warn("/v2/userinfo failed:", err);
-  }
-
-  // Fallback: /v2/me
-  try {
-    const meRes = await fetch("https://api.linkedin.com/v2/me", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-    const meText = await meRes.text();
-    console.log("GET /v2/me response", { status: meRes.status, body: meText });
-
-    if (meRes.ok) {
-      const data = JSON.parse(meText);
-      if (data.id) {
-        const urn = `urn:li:person:${data.id}`;
-        console.log("Resolved person URN from /v2/me:", urn);
-        return urn;
-      }
-    }
-  } catch (err) {
-    console.warn("/v2/me failed:", err);
-  }
-
-  return "";
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -76,7 +27,6 @@ serve(async (req) => {
     const { post_id } = await req.json();
     if (!post_id) throw new Error("post_id is required");
 
-    // Fetch the post
     const { data: post, error: postError } = await supabase
       .from("posts")
       .select("*")
@@ -86,7 +36,6 @@ serve(async (req) => {
     if (postError || !post) throw new Error("Post not found");
     if (post.status !== "approved") throw new Error("Post must be approved before publishing");
 
-    // Fetch LinkedIn access token
     const { data: tokenSetting } = await supabase
       .from("settings")
       .select("value")
@@ -98,50 +47,37 @@ serve(async (req) => {
     const accessToken = normalizeToken(tokenSetting?.value);
     if (!accessToken) throw new Error("LinkedIn access token not configured. Go to Settings to add it.");
 
-    // Always resolve person URN from the token itself to prevent mismatches
-    let personUrn = await resolvePersonUrn(accessToken);
-
-    // Fallback to stored URN only if API resolution fails entirely
-    if (!personUrn) {
-      const { data: urnSetting } = await supabase
-        .from("settings")
-        .select("value")
-        .eq("key", "linkedin_person_urn")
-        .maybeSingle();
-      personUrn = urnSetting?.value?.trim() || Deno.env.get("LINKEDIN_PERSON_URN") || "";
-      console.warn("Could not resolve URN from token — falling back to stored URN:", personUrn);
-    }
-
-    if (!personUrn) throw new Error("LinkedIn person URN could not be resolved. Go to Settings to add it.");
-
+    const personUrn = "urn:li:person:1Ov50zK-3L";
     console.log("Publishing with person URN:", personUrn);
 
     const { sanitizedText: sanitizedContent, diagnostics: sanitizeDiagnostics } = sanitizeForLinkedIn(post.content);
 
-    // Create post using LinkedIn Posts API
-    const linkedinUrl = "https://api.linkedin.com/rest/posts";
-    const linkedinRequestHeaders = {
+    // UGC Posts API payload
+    const linkedinUrl = "https://api.linkedin.com/v2/ugcPosts";
+    const linkedinRequestHeaders: Record<string, string> = {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json; charset=utf-8",
-      "LinkedIn-Version": "202503",
       "X-Restli-Protocol-Version": "2.0.0",
     };
     const linkedinRequestBody = {
       author: personUrn,
-      commentary: sanitizedContent,
-      visibility: "PUBLIC",
-      distribution: {
-        feedDistribution: "MAIN_FEED",
-        targetEntities: [],
-        thirdPartyDistributionChannels: [],
-      },
       lifecycleState: "PUBLISHED",
-      isReshareDisabledByAuthor: false,
+      specificContent: {
+        "com.linkedin.ugc.ShareContent": {
+          shareCommentary: {
+            text: sanitizedContent,
+          },
+          shareMediaCategory: "NONE",
+        },
+      },
+      visibility: {
+        "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
+      },
     };
 
     const serializedLinkedinBody = JSON.stringify(linkedinRequestBody);
 
-    console.log("LinkedIn API request", {
+    console.log("LinkedIn UGC API request", {
       url: linkedinUrl,
       method: "POST",
       headers: linkedinRequestHeaders,
@@ -157,7 +93,7 @@ serve(async (req) => {
       content_first_50: sanitizedContent.slice(0, 50),
       content_last_50: sanitizedContent.slice(-50),
     });
-    console.log("LinkedIn payload JSON string", serializedLinkedinBody);
+    console.log("LinkedIn UGC payload JSON string", serializedLinkedinBody);
 
     const linkedinRes = await fetch(linkedinUrl, {
       method: "POST",
@@ -171,31 +107,37 @@ serve(async (req) => {
       linkedinResponseHeaders[k] = v;
     });
 
-    console.log("LinkedIn API response", {
+    console.log("LinkedIn UGC API response", {
       status: linkedinRes.status,
       headers: linkedinResponseHeaders,
       body: linkedinText,
     });
 
     if (!linkedinRes.ok) {
-      throw new Error(`LinkedIn publish failed [${linkedinRes.status}]: ${linkedinText}`);
+      throw new Error(`LinkedIn UGC publish failed [${linkedinRes.status}]: ${linkedinText}`);
     }
 
-    const linkedinId = linkedinRes.headers.get("x-restli-id") || null;
+    // UGC API returns the ID in the response body
+    let linkedinId: string | null = null;
+    try {
+      const parsed = JSON.parse(linkedinText);
+      linkedinId = parsed.id || null;
+    } catch {
+      linkedinId = linkedinRes.headers.get("x-restli-id") || null;
+    }
 
-    // Update post status
     const now = new Date().toISOString();
     await supabase.from("posts").update({ status: "published", published_at: now }).eq("id", post_id);
 
     await supabase.from("agent_log").insert({
-      action: "linkedin_published",
+      action: "linkedin_published_ugc",
       api_cost_usd: 0,
       tokens_used: 0,
-      details: { post_id, linkedin_id: linkedinId, published_at: now, resolved_urn: personUrn },
+      details: { post_id, linkedin_id: linkedinId, published_at: now, resolved_urn: personUrn, api: "ugcPosts" },
     });
 
     return new Response(
-      JSON.stringify({ status: "success", post_id, linkedin_id: linkedinId, resolved_urn: personUrn }),
+      JSON.stringify({ status: "success", post_id, linkedin_id: linkedinId, resolved_urn: personUrn, api: "ugcPosts" }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
