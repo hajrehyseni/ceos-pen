@@ -92,25 +92,25 @@ serve(async (req) => {
           first_removed_hex_codes: sanitizeDiagnostics.firstRemovedHexCodes,
         });
 
-        const linkedinRes = await fetch("https://api.linkedin.com/rest/posts", {
+        const linkedinRes = await fetch("https://api.linkedin.com/v2/ugcPosts", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-            "LinkedIn-Version": "202503",
+            "Content-Type": "application/json; charset=utf-8",
             "X-Restli-Protocol-Version": "2.0.0",
           },
           body: JSON.stringify({
             author: personUrn,
-            commentary: sanitizedContent,
-            visibility: "PUBLIC",
-            distribution: {
-              feedDistribution: "MAIN_FEED",
-              targetEntities: [],
-              thirdPartyDistributionChannels: [],
-            },
             lifecycleState: "PUBLISHED",
-            isReshareDisabledByAuthor: false,
+            specificContent: {
+              "com.linkedin.ugc.ShareContent": {
+                shareCommentary: { text: sanitizedContent },
+                shareMediaCategory: "NONE",
+              },
+            },
+            visibility: {
+              "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
+            },
           }),
         });
 
