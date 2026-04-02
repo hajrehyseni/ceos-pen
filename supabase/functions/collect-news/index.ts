@@ -264,7 +264,7 @@ serve(async (req) => {
       tokens_used: totalTokens,
       details: {
         pillar,
-        model: "claude-3-5-haiku-20241022",
+        model: "claude-3-haiku-20240307",
         source: "google_news_rss",
         input_tokens: inputTokens,
         output_tokens: outputTokens,
