@@ -133,15 +133,7 @@ async function scoreArticles(
     published: a.pubDate,
   }));
 
-  const systemPrompt = `You are a news relevance scorer. You will receive REAL news articles from Google News RSS. Your job is to:
-1. Score each article's relevance to the content pillar "${pillarLabel}" on a scale of 1-10
-2. Write a factual 2-3 sentence summary for each article based ONLY on the title and source provided
-
-CRITICAL RULES:
-- Do NOT invent, fabricate, or hallucinate any information beyond what the title conveys
-- Base your summary on what the title tells you about the article's topic
-- Return EXACTLY a JSON array of objects with: "title", "url", "source", "summary", "relevance_score"
-- Output ONLY the JSON array, no markdown formatting, no explanation`;
+  const systemPrompt = `Score real news articles for relevance to "${pillarLabel}" (1-10) and write a 1-sentence summary each. Use ONLY info from the title. Return a JSON array of objects with: "title", "url", "source", "summary", "relevance_score". Output ONLY valid JSON, no markdown.`;
 
   const userMessage = `Here are ${articlesForClaude.length} real articles from Google News RSS. Score and summarise each one:
 
