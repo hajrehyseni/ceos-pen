@@ -1,0 +1,4 @@
+
+DELETE FROM news_items WHERE collected_at < '2026-04-02 11:00:00+00';
+DELETE FROM posts WHERE id = '1d199b2b-8f33-41cd-9894-a26d433b80f2';
+DELETE FROM posts WHERE id = '9c846e22-9685-44d6-ba69-e25d94432ed5';
