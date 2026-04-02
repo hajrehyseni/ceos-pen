@@ -90,7 +90,7 @@ async function fetchGoogleNewsRSS(query: string): Promise<RSSArticle[]> {
     const itemRegex = /<item>([\s\S]*?)<\/item>/g;
     let match;
     while ((match = itemRegex.exec(xml)) !== null) {
-      if (items.length >= 5) break;
+      if (items.length >= 3) break;
       const block = match[1];
       const title = block.match(/<title>([\s\S]*?)<\/title>/)?.[1]?.trim() || "";
       const link = block.match(/<link>([\s\S]*?)<\/link>/)?.[1]?.trim() || "";
