@@ -53,15 +53,15 @@ const PILLAR_SEARCH_QUERIES: Record<string, string[]> = {
   ],
 };
 
-// Claude Sonnet pricing
-const INPUT_COST_PER_TOKEN = 3 / 1_000_000;
-const OUTPUT_COST_PER_TOKEN = 15 / 1_000_000;
+// Claude 3 Haiku pricing
+const INPUT_COST_PER_TOKEN = 0.25 / 1_000_000;
+const OUTPUT_COST_PER_TOKEN = 1.25 / 1_000_000;
 
-interface FirecrawlResult {
-  url: string;
+interface RSSArticle {
   title: string;
-  description?: string;
-  markdown?: string;
+  url: string;
+  source: string;
+  pubDate: string;
 }
 
 interface ScoredArticle {
@@ -72,88 +72,70 @@ interface ScoredArticle {
   relevance_score: number;
 }
 
-/**
- * Search for real articles using Firecrawl Search API.
- */
-async function searchFirecrawl(
-  query: string,
-  apiKey: string
-): Promise<FirecrawlResult[]> {
-  const response = await fetch("https://api.firecrawl.dev/v1/search", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      query,
-      limit: 10,
-      tbs: "qdr:w", // last week
-      scrapeOptions: { formats: ["markdown"] },
-    }),
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    console.error(`Firecrawl search error [${response.status}]:`, errText);
+async function fetchGoogleNewsRSS(query: string): Promise<RSSArticle[]> {
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-GB&gl=GB&ceid=GB:en`;
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; NewsBot/1.0)",
+        "Accept": "application/rss+xml, application/xml, text/xml",
+      },
+    });
+    if (!response.ok) {
+      console.error(`Google News RSS error [${response.status}] for query: ${query}`);
+      return [];
+    }
+    const xml = await response.text();
+    const items: RSSArticle[] = [];
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let match;
+    while ((match = itemRegex.exec(xml)) !== null) {
+      if (items.length >= 3) break;
+      const block = match[1];
+      const title = block.match(/<title>([\s\S]*?)<\/title>/)?.[1]?.trim() || "";
+      const link = block.match(/<link>([\s\S]*?)<\/link>/)?.[1]?.trim() || "";
+      const source = block.match(/<source[^>]*>([\s\S]*?)<\/source>/)?.[1]?.trim() || "Unknown";
+      const pubDate = block.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1]?.trim() || "";
+      if (title && link) {
+        items.push({ title, url: link, source, pubDate });
+      }
+    }
+    return items;
+  } catch (err) {
+    console.error(`Failed to fetch RSS for query "${query}":`, err);
     return [];
   }
-
-  const data = await response.json();
-  return (data.data || []) as FirecrawlResult[];
 }
 
-/**
- * Extract domain from URL for the source field.
- */
-function extractDomain(url: string): string {
-  try {
-    const hostname = new URL(url).hostname;
-    return hostname.replace(/^www\./, "");
-  } catch {
-    return "Unknown";
-  }
+function normalizeTitle(t: string): string {
+  return t.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
 }
 
-/**
- * Deduplicate articles by URL.
- */
-function deduplicateByUrl(articles: FirecrawlResult[]): FirecrawlResult[] {
+function deduplicateByTitle(articles: RSSArticle[]): RSSArticle[] {
   const seen = new Set<string>();
   return articles.filter((a) => {
-    if (!a.url || seen.has(a.url)) return false;
-    seen.add(a.url);
+    const norm = normalizeTitle(a.title);
+    if (seen.has(norm)) return false;
+    seen.add(norm);
     return true;
   });
 }
 
-/**
- * Use Claude to score and summarize REAL articles only.
- */
 async function scoreArticles(
-  articles: FirecrawlResult[],
+  articles: RSSArticle[],
   pillarLabel: string,
   claudeApiKey: string
 ): Promise<{ scored: ScoredArticle[]; inputTokens: number; outputTokens: number }> {
   const articlesForClaude = articles.map((a) => ({
-    title: a.title || "Untitled",
+    title: a.title,
     url: a.url,
-    source_domain: extractDomain(a.url),
-    content_snippet: (a.markdown || a.description || "").slice(0, 800),
+    source: a.source,
+    published: a.pubDate,
   }));
 
-  const systemPrompt = `You are a news relevance scorer. You will receive REAL news articles that were found via web search. Your job is to:
-1. Score each article's relevance to the content pillar "${pillarLabel}" on a scale of 1-10
-2. Write a factual 2-3 sentence summary for each article using ONLY information present in the provided content
+  const systemPrompt = `Score real news articles for relevance to "${pillarLabel}" (1-10) and write a 1-sentence summary each. Use ONLY info from the title. Return a JSON array of objects with: "title", "url", "source", "summary", "relevance_score". Output ONLY valid JSON, no markdown.`;
 
-CRITICAL RULES:
-- Do NOT invent, fabricate, or hallucinate any information
-- Only use facts, names, numbers, and details that appear in the provided content snippets
-- If the content snippet is too short to summarise meaningfully, write "Brief article about [topic from title]"
-- Return EXACTLY a JSON array of objects with: "title", "url", "source", "summary", "relevance_score"
-- Output ONLY the JSON array, no markdown formatting, no explanation`;
-
-  const userMessage = `Here are ${articlesForClaude.length} real articles found via web search. Score and summarise each one:
+  const userMessage = `Here are ${articlesForClaude.length} real articles from Google News RSS. Score and summarise each one:
 
 ${JSON.stringify(articlesForClaude, null, 2)}`;
 
@@ -165,7 +147,7 @@ ${JSON.stringify(articlesForClaude, null, 2)}`;
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-3-haiku-20240307",
       max_tokens: 4096,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
@@ -200,9 +182,6 @@ serve(async (req) => {
     if (!pillar) throw new Error(`No content pillar configured for day ${dayOfWeek}`);
     const pillarLabel = PILLAR_LABELS[pillar];
 
-    const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
-    if (!FIRECRAWL_API_KEY) throw new Error("FIRECRAWL_API_KEY is not configured");
-
     const CLAUDE_API_KEY = Deno.env.get("CLAUDE_API_KEY");
     if (!CLAUDE_API_KEY) throw new Error("CLAUDE_API_KEY is not configured");
 
@@ -210,20 +189,19 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Phase 1: Search for real articles using Firecrawl
+    // Phase 1: Fetch real articles from Google News RSS
     const searchQueries = PILLAR_SEARCH_QUERIES[pillar];
-    console.log(`Searching for "${pillarLabel}" articles with ${searchQueries.length} queries...`);
+    console.log(`Fetching Google News RSS for "${pillarLabel}" with ${searchQueries.length} queries...`);
 
-    const searchPromises = searchQueries.map((q) => searchFirecrawl(q, FIRECRAWL_API_KEY));
-    const searchResults = await Promise.all(searchPromises);
+    const rssPromises = searchQueries.map((q) => fetchGoogleNewsRSS(q));
+    const rssResults = await Promise.all(rssPromises);
 
-    const allArticles = searchResults.flat();
-    const uniqueArticles = deduplicateByUrl(allArticles);
+    const allArticles = rssResults.flat();
+    const uniqueArticles = deduplicateByTitle(allArticles);
 
     console.log(`Found ${allArticles.length} total results, ${uniqueArticles.length} unique after dedup`);
 
     if (uniqueArticles.length === 0) {
-      // Log the empty result
       await supabase.from("agent_log").insert({
         action: "news_collected",
         api_cost_usd: 0,
@@ -231,12 +209,13 @@ serve(async (req) => {
         details: {
           pillar,
           items_collected: 0,
-          warning: "No articles found from Firecrawl search",
+          source: "google_news_rss",
+          warning: "No articles found from Google News RSS",
         },
       });
 
       return new Response(
-        JSON.stringify({ status: "success", count: 0, pillar, cost: 0, warning: "No articles found" }),
+        JSON.stringify({ status: "success", count: 0, pillar, cost: 0, source: "google_news_rss", warning: "No articles found" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -255,7 +234,6 @@ serve(async (req) => {
       throw new Error("No scored articles returned from Claude");
     }
 
-    // Insert into news_items table
     const rows = scored.map((item) => ({
       title: item.title?.slice(0, 500) || "Untitled",
       source: item.source?.slice(0, 200) || "Unknown",
@@ -272,18 +250,17 @@ serve(async (req) => {
 
     if (insertError) throw new Error(`Insert failed: ${insertError.message}`);
 
-    // Log to agent_log
     await supabase.from("agent_log").insert({
       action: "news_collected",
       api_cost_usd: parseFloat(apiCost.toFixed(6)),
       tokens_used: totalTokens,
       details: {
         pillar,
-        model: "claude-sonnet-4-20250514",
-        source: "firecrawl_search",
+        model: "claude-3-haiku-20240307",
+        source: "google_news_rss",
         input_tokens: inputTokens,
         output_tokens: outputTokens,
-        firecrawl_results: allArticles.length,
+        rss_results: allArticles.length,
         unique_articles: uniqueArticles.length,
         items_collected: inserted?.length ?? 0,
       },
@@ -295,7 +272,7 @@ serve(async (req) => {
         count: inserted?.length ?? 0,
         pillar,
         cost: parseFloat(apiCost.toFixed(6)),
-        source: "firecrawl_search",
+        source: "google_news_rss",
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
