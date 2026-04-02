@@ -8,13 +8,13 @@ const corsHeaders = {
 };
 
 const DAY_PILLARS: Record<number, string> = {
-  0: "ceo_journey", // Sunday
-  1: "ai_agents", // Monday
-  2: "defence_training", // Tuesday
-  3: "academic_research", // Wednesday
-  4: "ceo_journey", // Thursday
-  5: "curated_commentary", // Friday
-  6: "curated_commentary", // Saturday
+  0: "ceo_journey",
+  1: "ai_agents",
+  2: "defence_training",
+  3: "academic_research",
+  4: "ceo_journey",
+  5: "curated_commentary",
+  6: "curated_commentary",
 };
 
 const PILLAR_LABELS: Record<string, string> = {
@@ -53,21 +53,140 @@ const PILLAR_SEARCH_QUERIES: Record<string, string[]> = {
   ],
 };
 
-const NEWS_SYSTEM_PROMPT = `You are a news research assistant. Given a content pillar theme, find and return the most relevant, recent, and noteworthy news items, trends, and developments.
-
-Return EXACTLY a JSON array of objects. Each object must have:
-- "title": A clear, specific headline (string)
-- "source": The publication or organisation name (string)  
-- "url": A plausible URL for the story (string, use real domains)
-- "summary": A 2-3 sentence summary with specific details, names, numbers (string)
-- "relevance_score": How relevant this is to the pillar on a scale of 1-10 (number)
-
-Return 10-15 items. Focus on items from the last 7 days. Prioritise UK/European sources alongside global ones.
-Output ONLY the JSON array, no markdown formatting, no explanation.`;
-
 // Claude Sonnet pricing
 const INPUT_COST_PER_TOKEN = 3 / 1_000_000;
 const OUTPUT_COST_PER_TOKEN = 15 / 1_000_000;
+
+interface FirecrawlResult {
+  url: string;
+  title: string;
+  description?: string;
+  markdown?: string;
+}
+
+interface ScoredArticle {
+  title: string;
+  url: string;
+  source: string;
+  summary: string;
+  relevance_score: number;
+}
+
+/**
+ * Search for real articles using Firecrawl Search API.
+ */
+async function searchFirecrawl(
+  query: string,
+  apiKey: string
+): Promise<FirecrawlResult[]> {
+  const response = await fetch("https://api.firecrawl.dev/v1/search", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query,
+      limit: 10,
+      tbs: "qdr:w", // last week
+      scrapeOptions: { formats: ["markdown"] },
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error(`Firecrawl search error [${response.status}]:`, errText);
+    return [];
+  }
+
+  const data = await response.json();
+  return (data.data || []) as FirecrawlResult[];
+}
+
+/**
+ * Extract domain from URL for the source field.
+ */
+function extractDomain(url: string): string {
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.replace(/^www\./, "");
+  } catch {
+    return "Unknown";
+  }
+}
+
+/**
+ * Deduplicate articles by URL.
+ */
+function deduplicateByUrl(articles: FirecrawlResult[]): FirecrawlResult[] {
+  const seen = new Set<string>();
+  return articles.filter((a) => {
+    if (!a.url || seen.has(a.url)) return false;
+    seen.add(a.url);
+    return true;
+  });
+}
+
+/**
+ * Use Claude to score and summarize REAL articles only.
+ */
+async function scoreArticles(
+  articles: FirecrawlResult[],
+  pillarLabel: string,
+  claudeApiKey: string
+): Promise<{ scored: ScoredArticle[]; inputTokens: number; outputTokens: number }> {
+  const articlesForClaude = articles.map((a) => ({
+    title: a.title || "Untitled",
+    url: a.url,
+    source_domain: extractDomain(a.url),
+    content_snippet: (a.markdown || a.description || "").slice(0, 800),
+  }));
+
+  const systemPrompt = `You are a news relevance scorer. You will receive REAL news articles that were found via web search. Your job is to:
+1. Score each article's relevance to the content pillar "${pillarLabel}" on a scale of 1-10
+2. Write a factual 2-3 sentence summary for each article using ONLY information present in the provided content
+
+CRITICAL RULES:
+- Do NOT invent, fabricate, or hallucinate any information
+- Only use facts, names, numbers, and details that appear in the provided content snippets
+- If the content snippet is too short to summarise meaningfully, write "Brief article about [topic from title]"
+- Return EXACTLY a JSON array of objects with: "title", "url", "source", "summary", "relevance_score"
+- Output ONLY the JSON array, no markdown formatting, no explanation`;
+
+  const userMessage = `Here are ${articlesForClaude.length} real articles found via web search. Score and summarise each one:
+
+${JSON.stringify(articlesForClaude, null, 2)}`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": claudeApiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Claude API error [${response.status}]: ${errText}`);
+  }
+
+  const claudeData = await response.json();
+  const rawText = claudeData.content?.[0]?.text ?? "[]";
+  const inputTokens = claudeData.usage?.input_tokens ?? 0;
+  const outputTokens = claudeData.usage?.output_tokens ?? 0;
+
+  const cleaned = rawText.replace(/```json?\n?/g, "").replace(/```\n?/g, "").trim();
+  const scored = JSON.parse(cleaned) as ScoredArticle[];
+
+  return { scored, inputTokens, outputTokens };
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -77,11 +196,12 @@ serve(async (req) => {
   try {
     const now = new Date();
     const dayOfWeek = now.getDay();
-
-    // Determine pillar for all 7 days
     const pillar = DAY_PILLARS[dayOfWeek];
     if (!pillar) throw new Error(`No content pillar configured for day ${dayOfWeek}`);
     const pillarLabel = PILLAR_LABELS[pillar];
+
+    const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
+    if (!FIRECRAWL_API_KEY) throw new Error("FIRECRAWL_API_KEY is not configured");
 
     const CLAUDE_API_KEY = Deno.env.get("CLAUDE_API_KEY");
     if (!CLAUDE_API_KEY) throw new Error("CLAUDE_API_KEY is not configured");
@@ -90,74 +210,53 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Phase 1: Search for real articles using Firecrawl
     const searchQueries = PILLAR_SEARCH_QUERIES[pillar];
-    const todayStr = now.toLocaleDateString("en-GB", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+    console.log(`Searching for "${pillarLabel}" articles with ${searchQueries.length} queries...`);
 
-    const userMessage = `Today is ${todayStr}. The content pillar is: "${pillarLabel}".
+    const searchPromises = searchQueries.map((q) => searchFirecrawl(q, FIRECRAWL_API_KEY));
+    const searchResults = await Promise.all(searchPromises);
 
-Search themes to cover:
-${searchQueries.map((q, i) => `${i + 1}. ${q}`).join("\n")}
+    const allArticles = searchResults.flat();
+    const uniqueArticles = deduplicateByUrl(allArticles);
 
-Find the most relevant and recent news items, trends, reports, and developments related to this pillar. Include specific company names, statistics, and publication sources where possible.`;
+    console.log(`Found ${allArticles.length} total results, ${uniqueArticles.length} unique after dedup`);
 
-    // Call Claude
-    const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": CLAUDE_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        system: NEWS_SYSTEM_PROMPT,
-        messages: [{ role: "user", content: userMessage }],
-      }),
-    });
+    if (uniqueArticles.length === 0) {
+      // Log the empty result
+      await supabase.from("agent_log").insert({
+        action: "news_collected",
+        api_cost_usd: 0,
+        tokens_used: 0,
+        details: {
+          pillar,
+          items_collected: 0,
+          warning: "No articles found from Firecrawl search",
+        },
+      });
 
-    if (!claudeResponse.ok) {
-      const errText = await claudeResponse.text();
-      throw new Error(`Claude API error [${claudeResponse.status}]: ${errText}`);
+      return new Response(
+        JSON.stringify({ status: "success", count: 0, pillar, cost: 0, warning: "No articles found" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    const claudeData = await claudeResponse.json();
-    const rawText = claudeData.content?.[0]?.text ?? "[]";
+    // Phase 2: Score and summarise with Claude
+    const { scored, inputTokens, outputTokens } = await scoreArticles(
+      uniqueArticles,
+      pillarLabel,
+      CLAUDE_API_KEY
+    );
 
-    const inputTokens = claudeData.usage?.input_tokens ?? 0;
-    const outputTokens = claudeData.usage?.output_tokens ?? 0;
     const totalTokens = inputTokens + outputTokens;
     const apiCost = inputTokens * INPUT_COST_PER_TOKEN + outputTokens * OUTPUT_COST_PER_TOKEN;
 
-    // Parse news items from Claude response
-    let newsItems: Array<{
-      title: string;
-      source: string;
-      url: string;
-      summary: string;
-      relevance_score: number;
-    }> = [];
-
-    try {
-      // Strip any markdown code fences if present
-      const cleaned = rawText.replace(/```json?\n?/g, "").replace(/```\n?/g, "").trim();
-      newsItems = JSON.parse(cleaned);
-    } catch (parseErr) {
-      console.error("Failed to parse Claude news response:", parseErr, rawText.slice(0, 500));
-      throw new Error("Failed to parse news items from AI response");
-    }
-
-    if (!Array.isArray(newsItems) || newsItems.length === 0) {
-      throw new Error("No news items returned from AI");
+    if (!Array.isArray(scored) || scored.length === 0) {
+      throw new Error("No scored articles returned from Claude");
     }
 
     // Insert into news_items table
-    const rows = newsItems.map((item) => ({
+    const rows = scored.map((item) => ({
       title: item.title?.slice(0, 500) || "Untitled",
       source: item.source?.slice(0, 200) || "Unknown",
       url: item.url || null,
@@ -181,8 +280,11 @@ Find the most relevant and recent news items, trends, reports, and developments 
       details: {
         pillar,
         model: "claude-sonnet-4-20250514",
+        source: "firecrawl_search",
         input_tokens: inputTokens,
         output_tokens: outputTokens,
+        firecrawl_results: allArticles.length,
+        unique_articles: uniqueArticles.length,
         items_collected: inserted?.length ?? 0,
       },
     });
@@ -193,6 +295,7 @@ Find the most relevant and recent news items, trends, reports, and developments 
         count: inserted?.length ?? 0,
         pillar,
         cost: parseFloat(apiCost.toFixed(6)),
+        source: "firecrawl_search",
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
