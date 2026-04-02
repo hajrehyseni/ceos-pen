@@ -53,8 +53,9 @@ const PILLAR_SEARCH_QUERIES: Record<string, string[]> = {
   ],
 };
 
-const INPUT_COST_PER_TOKEN = 3 / 1_000_000;
-const OUTPUT_COST_PER_TOKEN = 15 / 1_000_000;
+// Claude 3.5 Haiku pricing
+const INPUT_COST_PER_TOKEN = 0.80 / 1_000_000;
+const OUTPUT_COST_PER_TOKEN = 4 / 1_000_000;
 
 interface RSSArticle {
   title: string;
