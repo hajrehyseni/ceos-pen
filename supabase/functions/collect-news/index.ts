@@ -74,12 +74,18 @@ interface ScoredArticle {
 async function fetchGoogleNewsRSS(query: string): Promise<RSSArticle[]> {
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-GB&gl=GB&ceid=GB:en`;
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; NewsBot/1.0)",
+        "Accept": "application/rss+xml, application/xml, text/xml",
+      },
+    });
     if (!response.ok) {
       console.error(`Google News RSS error [${response.status}] for query: ${query}`);
       return [];
     }
     const xml = await response.text();
+    console.log(`RSS response length for "${query}": ${xml.length} chars, items found: ${(xml.match(/<item>/g) || []).length}`);
     const items: RSSArticle[] = [];
     const itemRegex = /<item>([\s\S]*?)<\/item>/g;
     let match;
