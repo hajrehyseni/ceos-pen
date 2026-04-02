@@ -98,7 +98,7 @@ serve(async (req) => {
     const newsSection =
       newsItems && newsItems.length > 0
         ? newsItems
-            .map((n, i) => `${i + 1}. ${n.title} (${n.source}) — ${n.summary}`)
+            .map((n, i) => `${i + 1}. ${n.title} (${n.source}) — ${n.url}\n   ${n.summary}`)
             .join("\n")
         : "No recent news items available.";
 
