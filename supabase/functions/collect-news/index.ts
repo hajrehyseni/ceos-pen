@@ -85,12 +85,11 @@ async function fetchGoogleNewsRSS(query: string): Promise<RSSArticle[]> {
       return [];
     }
     const xml = await response.text();
-    console.log(`RSS response length for "${query}": ${xml.length} chars, items found: ${(xml.match(/<item>/g) || []).length}`);
     const items: RSSArticle[] = [];
     const itemRegex = /<item>([\s\S]*?)<\/item>/g;
     let match;
     while ((match = itemRegex.exec(xml)) !== null) {
-      if (items.length >= 10) break; // Cap at 10 per query
+      if (items.length >= 5) break;
       const block = match[1];
       const title = block.match(/<title>([\s\S]*?)<\/title>/)?.[1]?.trim() || "";
       const link = block.match(/<link>([\s\S]*?)<\/link>/)?.[1]?.trim() || "";
