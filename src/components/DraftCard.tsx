@@ -115,6 +115,14 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
         </span>
       </div>
 
+      {/* No-source warning */}
+      {(!sources || sources.length === 0) && (
+        <div className="flex items-start gap-2 px-3 py-2 rounded-md border border-warning/40 bg-warning/10 text-warning text-xs">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>No source — may contain fabricated content. Review carefully before publishing.</span>
+        </div>
+      )}
+
       {/* Content */}
       {editing ? (
         <div className="space-y-3">
