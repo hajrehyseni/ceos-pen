@@ -4,7 +4,7 @@ import { PILLARS, PillarKey } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Check, Pencil, X, Copy, Send, ChevronDown, ChevronUp, Clock, Linkedin } from "lucide-react";
+import { Check, Pencil, X, Copy, Send, ChevronDown, ChevronUp, Clock, Linkedin, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
