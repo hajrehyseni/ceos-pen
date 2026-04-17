@@ -4,7 +4,7 @@ import { PILLARS, PillarKey } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Check, Pencil, X, Copy, Send, ChevronDown, ChevronUp, Clock, Linkedin } from "lucide-react";
+import { Check, Pencil, X, Copy, Send, ChevronDown, ChevronUp, Clock, Linkedin, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -114,6 +114,14 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
           {new Date(post.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
         </span>
       </div>
+
+      {/* No-source warning */}
+      {(!sources || sources.length === 0) && (
+        <div className="flex items-start gap-2 px-3 py-2 rounded-md border border-warning/40 bg-warning/10 text-warning text-xs">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>No source — may contain fabricated content. Review carefully before publishing.</span>
+        </div>
+      )}
 
       {/* Content */}
       {editing ? (
