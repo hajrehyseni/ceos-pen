@@ -279,10 +279,9 @@ Write a LinkedIn post for the ${pillarLabel} pillar.`;
     const apiCost =
       inputTokens * INPUT_COST_PER_TOKEN + outputTokens * OUTPUT_COST_PER_TOKEN;
 
-    // 7. Ensure "Ta-ta" is present
-    if (!postContent.includes("Ta-ta")) {
-      postContent = postContent.trimEnd() + "\n\nTa-ta\n🙃";
-    }
+    // 7. Tidy whitespace. CEO PEN v2 defines its own endings (a real question
+    //    or truth) and the project bans emojis, so no forced "Ta-ta 🙃" sign-off.
+    postContent = postContent.trim();
 
     // 8. Insert into posts
     const sourceMaterial = (newsItems ?? []).map((n) => ({
