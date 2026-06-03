@@ -40,7 +40,8 @@ const SYSTEM_PROMPT = `You are CEO PEN — a ghostwriting agent for a founder-ed
 OPERATING CONSTRAINTS (system requirements, not style)
 - Only reference facts, statistics, studies, and source names that appear in the provided NEWS ITEMS. Never fabricate citations, statistics, named people, companies, or numbers. If the sources do not support a detail, leave it out.
 - No hashtags. No emojis.
-- Output ONLY the post text — no preamble, no title, no commentary.`;
+- Output ONLY the post text — no preamble, no title, no commentary.
+- You may reference the CURRENT AI LANDSCAPE items to make the post feel timely, but only if it fits the pillar naturally. Never force it. Still no fabrication — only facts from the provided items.`;
 
 // Claude pricing: sonnet input $3/MTok, output $15/MTok
 const INPUT_COST_PER_TOKEN = 3 / 1_000_000;
@@ -68,14 +69,30 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // 3. Fetch news_items from last 24h
+    // 3. Fetch news_items from last 24h (today's pillar)
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
     const { data: newsItems } = await supabase
       .from("news_items")
       .select("*")
+      .eq("pillar_match", pillar)
       .gte("collected_at", yesterday)
       .order("relevance_score", { ascending: false })
       .limit(15);
+
+    // 3b. Fetch recent AI landscape items (last 48h) so every draft, on every
+    // pillar, can stay grounded in what's actually happening in AI. Skip if
+    // today's pillar IS ai_agents (already covered above).
+    const twoDaysAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
+    const { data: aiLandscape } = pillar === "ai_agents"
+      ? { data: [] as any[] }
+      : await supabase
+          .from("news_items")
+          .select("*")
+          .eq("pillar_match", "ai_agents")
+          .gte("collected_at", twoDaysAgo)
+          .order("relevance_score", { ascending: false })
+          .limit(8);
+
 
     // 4. Fetch top 3 voice_samples
     const { data: voiceSamples } = await supabase
@@ -119,11 +136,22 @@ serve(async (req) => {
             .join("\n")
         : "No previous rejections.";
 
+    const aiLandscapeSection =
+      aiLandscape && aiLandscape.length > 0
+        ? aiLandscape
+            .map((n, i) => `${i + 1}. ${n.title} (${n.source}) — ${n.url}\n   ${n.summary}`)
+            .join("\n")
+        : null;
+
+    const aiLandscapeBlock = aiLandscapeSection
+      ? `\nCURRENT AI LANDSCAPE (last 48h — reference these to keep the post grounded in what's actually happening, even though the pillar isn't AI. Only use if it fits naturally):\n${aiLandscapeSection}\n`
+      : "";
+
     const userMessage = `Today is ${todayStr}. The content pillar for today is: ${pillarLabel}.
 
 NEWS ITEMS (use as source material):
 ${newsSection}
-
+${aiLandscapeBlock}
 VOICE SAMPLES (match this tone and style):
 ${voiceSection}
 
@@ -169,13 +197,24 @@ Write a LinkedIn post for the ${pillarLabel} pillar.`;
     postContent = postContent.trim();
 
     // 8. Insert into posts
-    const sourceMaterial = (newsItems ?? []).map((n) => ({
-      id: n.id,
-      title: n.title,
-      source: n.source,
-      url: n.url,
-      relevance_score: n.relevance_score,
-    }));
+    const sourceMaterial = [
+      ...(newsItems ?? []).map((n) => ({
+        id: n.id,
+        title: n.title,
+        source: n.source,
+        url: n.url,
+        relevance_score: n.relevance_score,
+        kind: "pillar" as const,
+      })),
+      ...(aiLandscape ?? []).map((n) => ({
+        id: n.id,
+        title: n.title,
+        source: n.source,
+        url: n.url,
+        relevance_score: n.relevance_score,
+        kind: "ai_landscape" as const,
+      })),
+    ];
 
     const { data: newPost, error: postError } = await supabase
       .from("posts")
