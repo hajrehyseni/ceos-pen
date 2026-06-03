@@ -136,11 +136,22 @@ serve(async (req) => {
             .join("\n")
         : "No previous rejections.";
 
+    const aiLandscapeSection =
+      aiLandscape && aiLandscape.length > 0
+        ? aiLandscape
+            .map((n, i) => `${i + 1}. ${n.title} (${n.source}) — ${n.url}\n   ${n.summary}`)
+            .join("\n")
+        : null;
+
+    const aiLandscapeBlock = aiLandscapeSection
+      ? `\nCURRENT AI LANDSCAPE (last 48h — reference these to keep the post grounded in what's actually happening, even though the pillar isn't AI. Only use if it fits naturally):\n${aiLandscapeSection}\n`
+      : "";
+
     const userMessage = `Today is ${todayStr}. The content pillar for today is: ${pillarLabel}.
 
 NEWS ITEMS (use as source material):
 ${newsSection}
-
+${aiLandscapeBlock}
 VOICE SAMPLES (match this tone and style):
 ${voiceSection}
 
