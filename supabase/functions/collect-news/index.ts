@@ -147,7 +147,7 @@ ${JSON.stringify(articlesForClaude, null, 2)}`;
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "claude-3-haiku-20240307",
+      model: "claude-3-5-haiku-20241022",
       max_tokens: 4096,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
@@ -289,7 +289,7 @@ serve(async (req) => {
       tokens_used: totalTokens,
       details: {
         pillar,
-        model: "claude-3-haiku-20240307",
+        model: "claude-3-5-haiku-20241022",
         source: "google_news_rss",
         input_tokens: totalInputTokens,
         output_tokens: totalOutputTokens,
