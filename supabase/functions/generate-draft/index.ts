@@ -280,41 +280,60 @@ ${rejectSection}
 
 Write a LinkedIn post for the ${pillarLabel} pillar.`;
 
-    // 6. Call Claude API
-    const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": CLAUDE_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 2048,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: userMessage }],
-      }),
-    });
+    // 6. Build verifier source pool (same items shown to the writer)
+    const verifierSources = [
+      ...(newsItems ?? []),
+      ...(aiLandscape ?? []),
+    ].map((n) => ({
+      title: n.title ?? "Untitled",
+      source: n.source ?? "Unknown",
+      summary: n.summary ?? null,
+    }));
 
-    if (!claudeResponse.ok) {
-      const errText = await claudeResponse.text();
-      console.error("Claude API error:", claudeResponse.status, errText);
-      throw new Error(`Claude API error [${claudeResponse.status}]: ${errText}`);
+    // 7. Generate draft → verify → retry once if unsupported claims
+    let firstDraft = await callClaudeForDraft(CLAUDE_API_KEY, userMessage);
+    let postContent = firstDraft.text;
+    let genInputTokens = firstDraft.inputTokens;
+    let genOutputTokens = firstDraft.outputTokens;
+
+    let verifier = await verifyDraft(postContent, verifierSources, CLAUDE_API_KEY);
+    let verifierInputTokens = verifier.inputTokens;
+    let verifierOutputTokens = verifier.outputTokens;
+    let retried = false;
+
+    if (verifier.verdict === "fail") {
+      const unsupported = verifier.claims
+        .filter((c) => !c.supported)
+        .map((c) => `- "${c.claim}" (${c.reason})`)
+        .join("\n");
+
+      const retryMessage = `${userMessage}
+
+⚠️ PREVIOUS ATTEMPT FAILED FACT-CHECK. These claims were NOT supported by the source material:
+${unsupported || "(no specific claims captured; rewrite cautiously)"}
+
+Rewrite the post. Remove or rephrase every unsupported claim. Do not invent any company names, people, products, statistics, numbers, dates, or studies that aren't in the supplied sources. If you can't ground a fact, leave it out and lean on the author's own observations instead.`;
+
+      console.log(`Verifier failed on first pass — retrying with explicit guidance. ${verifier.claims.filter((c) => !c.supported).length} unsupported claims.`);
+      const retryDraft = await callClaudeForDraft(CLAUDE_API_KEY, retryMessage);
+      postContent = retryDraft.text;
+      genInputTokens += retryDraft.inputTokens;
+      genOutputTokens += retryDraft.outputTokens;
+      retried = true;
+
+      verifier = await verifyDraft(postContent, verifierSources, CLAUDE_API_KEY);
+      verifierInputTokens += verifier.inputTokens;
+      verifierOutputTokens += verifier.outputTokens;
     }
 
-    const claudeData = await claudeResponse.json();
-    let postContent: string =
-      claudeData.content?.[0]?.text ?? "";
-
-    const inputTokens = claudeData.usage?.input_tokens ?? 0;
-    const outputTokens = claudeData.usage?.output_tokens ?? 0;
-    const totalTokens = inputTokens + outputTokens;
-    const apiCost =
-      inputTokens * INPUT_COST_PER_TOKEN + outputTokens * OUTPUT_COST_PER_TOKEN;
-
-    // 7. Tidy whitespace. CEO PEN v2 defines its own endings (a real question
-    //    or truth) and the project bans emojis, so no forced "Ta-ta 🙃" sign-off.
     postContent = postContent.trim();
+
+    const apiCost =
+      genInputTokens * INPUT_COST_PER_TOKEN +
+      genOutputTokens * OUTPUT_COST_PER_TOKEN +
+      verifierInputTokens * HAIKU_INPUT_COST_PER_TOKEN +
+      verifierOutputTokens * HAIKU_OUTPUT_COST_PER_TOKEN;
+    const totalTokens = genInputTokens + genOutputTokens + verifierInputTokens + verifierOutputTokens;
 
     // 8. Insert into posts
     const sourceMaterial = [
@@ -336,6 +355,14 @@ Write a LinkedIn post for the ${pillarLabel} pillar.`;
       })),
     ];
 
+    const verificationNotes = {
+      verdict: verifier.verdict,
+      retried,
+      claims: verifier.claims,
+      verifier_error: verifier.error ?? null,
+      checked_at: new Date().toISOString(),
+    };
+
     const { data: newPost, error: postError } = await supabase
       .from("posts")
       .insert({
@@ -343,9 +370,11 @@ Write a LinkedIn post for the ${pillarLabel} pillar.`;
         pillar,
         status: "draft",
         format: "text",
-         suggested_time: DAY_SUGGESTED_TIMES[dayOfWeek] ?? "09:00:00",
+        suggested_time: DAY_SUGGESTED_TIMES[dayOfWeek] ?? "09:00:00",
         engagement_estimate: "medium",
         source_material: sourceMaterial,
+        verification_status: verifier.verdict === "pass" ? "passed" : "failed",
+        verification_notes: verificationNotes,
       })
       .select("id")
       .single();
@@ -360,10 +389,17 @@ Write a LinkedIn post for the ${pillarLabel} pillar.`;
       details: {
         pillar,
         model: "claude-sonnet-4-20250514",
-        input_tokens: inputTokens,
-        output_tokens: outputTokens,
+        verifier_model: "claude-3-haiku-20240307",
+        gen_input_tokens: genInputTokens,
+        gen_output_tokens: genOutputTokens,
+        verifier_input_tokens: verifierInputTokens,
+        verifier_output_tokens: verifierOutputTokens,
         post_id: newPost.id,
         news_items_count: newsItems?.length ?? 0,
+        ai_landscape_count: aiLandscape?.length ?? 0,
+        verification_status: verifier.verdict === "pass" ? "passed" : "failed",
+        verifier_retried: retried,
+        unsupported_claim_count: verifier.claims.filter((c) => !c.supported).length,
       },
     });
 
@@ -373,6 +409,8 @@ Write a LinkedIn post for the ${pillarLabel} pillar.`;
         status: "success",
         post_id: newPost.id,
         cost: parseFloat(apiCost.toFixed(6)),
+        verification_status: verifier.verdict === "pass" ? "passed" : "failed",
+        retried,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
