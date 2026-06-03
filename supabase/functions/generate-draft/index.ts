@@ -104,11 +104,12 @@ Return ONLY valid JSON, no markdown:
   "fixes": ["...", "..."]
 }`;
 
+const CLAUDE_GENERATION_MODEL = "claude-sonnet-4-20250514";
+const CLAUDE_VERIFIER_MODEL = "claude-sonnet-4-20250514";
+
 // Claude pricing
 const INPUT_COST_PER_TOKEN = 3 / 1_000_000;
 const OUTPUT_COST_PER_TOKEN = 15 / 1_000_000;
-const HAIKU_INPUT_COST_PER_TOKEN = 0.25 / 1_000_000;
-const HAIKU_OUTPUT_COST_PER_TOKEN = 1.25 / 1_000_000;
 
 type VerifierClaim = {
   claim: string;
@@ -185,7 +186,7 @@ async function brainstormHooks(
   userMessage: string,
 ): Promise<{ hooks: Array<{ shape: string; text: string }>; inputTokens: number; outputTokens: number }> {
   try {
-    const r = await callClaude(apiKey, "claude-sonnet-4-20250514", HOOK_BRAINSTORM_PROMPT, userMessage, 600);
+    const r = await callClaude(apiKey, CLAUDE_GENERATION_MODEL, HOOK_BRAINSTORM_PROMPT, userMessage, 600);
     const parsed = JSON.parse(stripJsonFence(r.text));
     const hooks = Array.isArray(parsed.hooks) ? parsed.hooks.filter((h: any) => h?.text) : [];
     return { hooks, inputTokens: r.inputTokens, outputTokens: r.outputTokens };
@@ -206,7 +207,7 @@ async function verifyDraft(
   const userMsg = `SOURCE ITEMS:\n${sourceBlock}\n\nDRAFT POST:\n"""${draft}"""\n\nFact-check the draft against the sources. Return JSON only.`;
 
   try {
-    const r = await callClaude(apiKey, "claude-3-5-haiku-20241022", VERIFIER_SYSTEM_PROMPT, userMsg, 1500);
+    const r = await callClaude(apiKey, CLAUDE_VERIFIER_MODEL, VERIFIER_SYSTEM_PROMPT, userMsg, 1500);
     const parsed = JSON.parse(stripJsonFence(r.text));
     const claims: VerifierClaim[] = Array.isArray(parsed.claims) ? parsed.claims : [];
     const verdict: "pass" | "fail" =
@@ -227,7 +228,7 @@ async function scoreDraft(draft: string, apiKey: string): Promise<ScoreResult> {
   try {
     const r = await callClaude(
       apiKey,
-      "claude-3-5-haiku-20241022",
+      CLAUDE_VERIFIER_MODEL,
       SCORER_SYSTEM_PROMPT,
       `DRAFT POST:\n"""${draft}"""\n\nScore the draft. Return JSON only.`,
       800,
