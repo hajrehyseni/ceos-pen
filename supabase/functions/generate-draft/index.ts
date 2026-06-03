@@ -206,7 +206,7 @@ async function verifyDraft(
   const userMsg = `SOURCE ITEMS:\n${sourceBlock}\n\nDRAFT POST:\n"""${draft}"""\n\nFact-check the draft against the sources. Return JSON only.`;
 
   try {
-    const r = await callClaude(apiKey, "claude-3-haiku-20240307", VERIFIER_SYSTEM_PROMPT, userMsg, 1500);
+    const r = await callClaude(apiKey, "claude-3-5-haiku-20241022", VERIFIER_SYSTEM_PROMPT, userMsg, 1500);
     const parsed = JSON.parse(stripJsonFence(r.text));
     const claims: VerifierClaim[] = Array.isArray(parsed.claims) ? parsed.claims : [];
     const verdict: "pass" | "fail" =
@@ -227,7 +227,7 @@ async function scoreDraft(draft: string, apiKey: string): Promise<ScoreResult> {
   try {
     const r = await callClaude(
       apiKey,
-      "claude-3-haiku-20240307",
+      "claude-3-5-haiku-20241022",
       SCORER_SYSTEM_PROMPT,
       `DRAFT POST:\n"""${draft}"""\n\nScore the draft. Return JSON only.`,
       800,
@@ -528,7 +528,7 @@ Keep zero-fabrication rules. Output ONLY the post text.`;
       api_cost_usd: parseFloat(apiCost.toFixed(6)),
       tokens_used: totalTokens,
       details: {
-        pillar, model: "claude-sonnet-4-20250514", verifier_model: "claude-3-haiku-20240307",
+        pillar, model: "claude-sonnet-4-20250514", verifier_model: "claude-3-5-haiku-20241022",
         hook_input_tokens: hookBrainstorm.inputTokens, hook_output_tokens: hookBrainstorm.outputTokens,
         gen_input_tokens: genInputTokens, gen_output_tokens: genOutputTokens,
         verifier_input_tokens: verifierInputTokens, verifier_output_tokens: verifierOutputTokens,
