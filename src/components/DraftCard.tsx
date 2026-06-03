@@ -124,6 +124,47 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
         </div>
       )}
 
+      {/* Fact-check verification badge */}
+      {post.verification_status === "passed" && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-success/40 bg-success/10 text-success text-xs">
+          <ShieldCheck className="w-4 h-4 shrink-0" />
+          <span className="font-medium">Verified — every factual claim matches the source material.</span>
+        </div>
+      )}
+      {post.verification_status === "failed" && (() => {
+        const notes = post.verification_notes as any;
+        const unsupported = Array.isArray(notes?.claims)
+          ? notes.claims.filter((c: any) => !c.supported)
+          : [];
+        return (
+          <div className="px-3 py-2 rounded-md border border-warning/40 bg-warning/10 text-warning text-xs space-y-2">
+            <button
+              type="button"
+              onClick={() => setVerifyOpen(!verifyOpen)}
+              className="flex items-start gap-2 w-full text-left"
+            >
+              <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+              <span className="font-medium flex-1">
+                Needs review — {unsupported.length} unsupported claim{unsupported.length === 1 ? "" : "s"} after fact-check
+                {notes?.retried ? " (already retried once)" : ""}.
+              </span>
+              {verifyOpen ? <ChevronUp className="w-3 h-3 mt-1" /> : <ChevronDown className="w-3 h-3 mt-1" />}
+            </button>
+            {verifyOpen && unsupported.length > 0 && (
+              <ul className="space-y-1 pl-6 list-disc">
+                {unsupported.map((c: any, i: number) => (
+                  <li key={i}>
+                    <span className="italic">"{c.claim}"</span> — {c.reason}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      })()}
+
+
+
       {/* Content */}
       {editing ? (
         <div className="space-y-3">
