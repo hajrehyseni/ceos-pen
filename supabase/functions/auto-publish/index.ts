@@ -82,6 +82,23 @@ serve(async (req) => {
 
     for (const post of approvedPosts) {
       try {
+        // Zero-fabrication guard: never auto-publish a draft that hasn't passed the verifier.
+        if (post.verification_status !== "passed") {
+          console.warn(`Skipping auto-publish for post ${post.id} — verification_status=${post.verification_status}`);
+          await supabase.from("agent_log").insert({
+            action: "auto_publish_skipped_verification",
+            api_cost_usd: 0,
+            tokens_used: 0,
+            details: {
+              post_id: post.id,
+              verification_status: post.verification_status,
+              reason: "Post not auto-published because the fact-check did not pass; needs manual review.",
+            },
+          });
+          results.push({ post_id: post.id, status: "skipped_verification", verification_status: post.verification_status });
+          continue;
+        }
+
         const { sanitizedText: sanitizedContent, diagnostics: sanitizeDiagnostics } = sanitizeForLinkedIn(post.content);
 
         console.log("Auto-publish sanitization diagnostics", {
