@@ -201,54 +201,87 @@ serve(async (req) => {
 
     console.log(`Found ${allArticles.length} total results, ${uniqueArticles.length} unique after dedup`);
 
-    if (uniqueArticles.length === 0) {
-      await supabase.from("agent_log").insert({
-        action: "news_collected",
-        api_cost_usd: 0,
-        tokens_used: 0,
-        details: {
-          pillar,
-          items_collected: 0,
-          source: "google_news_rss",
-          warning: "No articles found from Google News RSS",
-        },
-      });
+    // Phase 2: Score and summarise pillar articles with Claude
+    let pillarInsertedCount = 0;
+    let pillarInputTokens = 0;
+    let pillarOutputTokens = 0;
 
-      return new Response(
-        JSON.stringify({ status: "success", count: 0, pillar, cost: 0, source: "google_news_rss", warning: "No articles found" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    if (uniqueArticles.length > 0) {
+      const { scored, inputTokens, outputTokens } = await scoreArticles(
+        uniqueArticles,
+        pillarLabel,
+        CLAUDE_API_KEY
       );
+      pillarInputTokens = inputTokens;
+      pillarOutputTokens = outputTokens;
+
+      if (Array.isArray(scored) && scored.length > 0) {
+        const rows = scored.map((item) => ({
+          title: item.title?.slice(0, 500) || "Untitled",
+          source: item.source?.slice(0, 200) || "Unknown",
+          url: item.url || null,
+          summary: item.summary?.slice(0, 1000) || null,
+          relevance_score: Math.min(10, Math.max(1, item.relevance_score || 5)),
+          pillar_match: pillar,
+        }));
+        const { data: inserted, error: insertError } = await supabase
+          .from("news_items")
+          .insert(rows)
+          .select("id");
+        if (insertError) throw new Error(`Insert failed: ${insertError.message}`);
+        pillarInsertedCount = inserted?.length ?? 0;
+      }
     }
 
-    // Phase 2: Score and summarise with Claude
-    const { scored, inputTokens, outputTokens } = await scoreArticles(
-      uniqueArticles,
-      pillarLabel,
-      CLAUDE_API_KEY
-    );
+    // Phase 3: ALWAYS sweep current AI news so every draft (regardless of
+    // pillar) can stay grounded in what's actually happening in the world.
+    // Skip when today's pillar is already ai_agents to avoid duplicate work.
+    let aiInsertedCount = 0;
+    let aiInputTokens = 0;
+    let aiOutputTokens = 0;
 
-    const totalTokens = inputTokens + outputTokens;
-    const apiCost = inputTokens * INPUT_COST_PER_TOKEN + outputTokens * OUTPUT_COST_PER_TOKEN;
+    if (pillar !== "ai_agents") {
+      const aiQueries = [
+        ...PILLAR_SEARCH_QUERIES.ai_agents,
+        "latest AI news this week",
+        "OpenAI Anthropic Google AI announcement",
+      ];
+      console.log(`AI landscape sweep: ${aiQueries.length} queries...`);
+      const aiRss = await Promise.all(aiQueries.map((q) => fetchGoogleNewsRSS(q)));
+      const aiUnique = deduplicateByTitle(aiRss.flat());
+      console.log(`AI sweep: ${aiUnique.length} unique articles`);
 
-    if (!Array.isArray(scored) || scored.length === 0) {
-      throw new Error("No scored articles returned from Claude");
+      if (aiUnique.length > 0) {
+        try {
+          const aiResult = await scoreArticles(aiUnique, PILLAR_LABELS.ai_agents, CLAUDE_API_KEY);
+          aiInputTokens = aiResult.inputTokens;
+          aiOutputTokens = aiResult.outputTokens;
+          if (Array.isArray(aiResult.scored) && aiResult.scored.length > 0) {
+            const aiRows = aiResult.scored.map((item) => ({
+              title: item.title?.slice(0, 500) || "Untitled",
+              source: item.source?.slice(0, 200) || "Unknown",
+              url: item.url || null,
+              summary: item.summary?.slice(0, 1000) || null,
+              relevance_score: Math.min(10, Math.max(1, item.relevance_score || 5)),
+              pillar_match: "ai_agents",
+            }));
+            const { data: aiInserted, error: aiErr } = await supabase
+              .from("news_items")
+              .insert(aiRows)
+              .select("id");
+            if (aiErr) console.error("AI sweep insert error:", aiErr.message);
+            else aiInsertedCount = aiInserted?.length ?? 0;
+          }
+        } catch (err) {
+          console.error("AI sweep scoring failed:", err);
+        }
+      }
     }
 
-    const rows = scored.map((item) => ({
-      title: item.title?.slice(0, 500) || "Untitled",
-      source: item.source?.slice(0, 200) || "Unknown",
-      url: item.url || null,
-      summary: item.summary?.slice(0, 1000) || null,
-      relevance_score: Math.min(10, Math.max(1, item.relevance_score || 5)),
-      pillar_match: pillar,
-    }));
-
-    const { data: inserted, error: insertError } = await supabase
-      .from("news_items")
-      .insert(rows)
-      .select("id");
-
-    if (insertError) throw new Error(`Insert failed: ${insertError.message}`);
+    const totalInputTokens = pillarInputTokens + aiInputTokens;
+    const totalOutputTokens = pillarOutputTokens + aiOutputTokens;
+    const totalTokens = totalInputTokens + totalOutputTokens;
+    const apiCost = totalInputTokens * INPUT_COST_PER_TOKEN + totalOutputTokens * OUTPUT_COST_PER_TOKEN;
 
     await supabase.from("agent_log").insert({
       action: "news_collected",
@@ -258,18 +291,22 @@ serve(async (req) => {
         pillar,
         model: "claude-3-haiku-20240307",
         source: "google_news_rss",
-        input_tokens: inputTokens,
-        output_tokens: outputTokens,
+        input_tokens: totalInputTokens,
+        output_tokens: totalOutputTokens,
         rss_results: allArticles.length,
         unique_articles: uniqueArticles.length,
-        items_collected: inserted?.length ?? 0,
+        pillar_items_collected: pillarInsertedCount,
+        ai_landscape_items_collected: aiInsertedCount,
+        items_collected: pillarInsertedCount + aiInsertedCount,
       },
     });
 
     return new Response(
       JSON.stringify({
         status: "success",
-        count: inserted?.length ?? 0,
+        count: pillarInsertedCount + aiInsertedCount,
+        pillar_items: pillarInsertedCount,
+        ai_landscape_items: aiInsertedCount,
         pillar,
         cost: parseFloat(apiCost.toFixed(6)),
         source: "google_news_rss",
