@@ -53,9 +53,11 @@ const PILLAR_SEARCH_QUERIES: Record<string, string[]> = {
   ],
 };
 
-// Claude 3 Haiku pricing
-const INPUT_COST_PER_TOKEN = 0.25 / 1_000_000;
-const OUTPUT_COST_PER_TOKEN = 1.25 / 1_000_000;
+const CLAUDE_NEWS_MODEL = "claude-sonnet-4-20250514";
+
+// Claude Sonnet pricing
+const INPUT_COST_PER_TOKEN = 3 / 1_000_000;
+const OUTPUT_COST_PER_TOKEN = 15 / 1_000_000;
 
 interface RSSArticle {
   title: string;
@@ -147,7 +149,7 @@ ${JSON.stringify(articlesForClaude, null, 2)}`;
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "claude-3-5-haiku-20241022",
+      model: CLAUDE_NEWS_MODEL,
       max_tokens: 4096,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
@@ -289,7 +291,7 @@ serve(async (req) => {
       tokens_used: totalTokens,
       details: {
         pillar,
-        model: "claude-3-5-haiku-20241022",
+        model: CLAUDE_NEWS_MODEL,
         source: "google_news_rss",
         input_tokens: totalInputTokens,
         output_tokens: totalOutputTokens,
