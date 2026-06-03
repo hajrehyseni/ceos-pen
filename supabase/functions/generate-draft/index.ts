@@ -61,6 +61,111 @@ Verdict is "pass" only if every claim has supported=true. Otherwise "fail".`;
 // Claude pricing: sonnet input $3/MTok, output $15/MTok
 const INPUT_COST_PER_TOKEN = 3 / 1_000_000;
 const OUTPUT_COST_PER_TOKEN = 15 / 1_000_000;
+// Haiku pricing (used by verifier): $0.25 / $1.25 per MTok
+const HAIKU_INPUT_COST_PER_TOKEN = 0.25 / 1_000_000;
+const HAIKU_OUTPUT_COST_PER_TOKEN = 1.25 / 1_000_000;
+
+type VerifierClaim = {
+  claim: string;
+  type: "entity" | "number" | "study";
+  supported: boolean;
+  source_index: number | null;
+  reason: string;
+};
+
+type VerifierResult = {
+  verdict: "pass" | "fail";
+  claims: VerifierClaim[];
+  inputTokens: number;
+  outputTokens: number;
+  error?: string;
+};
+
+async function verifyDraft(
+  draft: string,
+  sources: Array<{ title: string; source: string; summary: string | null }>,
+  claudeApiKey: string,
+): Promise<VerifierResult> {
+  const sourceBlock = sources
+    .map((s, i) => `${i + 1}. ${s.title} (${s.source})\n   ${s.summary ?? ""}`)
+    .join("\n");
+
+  const userMsg = `SOURCE ITEMS:\n${sourceBlock}\n\nDRAFT POST:\n"""${draft}"""\n\nFact-check the draft against the sources. Return JSON only.`;
+
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": claudeApiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-3-haiku-20240307",
+      max_tokens: 1500,
+      system: VERIFIER_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userMsg }],
+    }),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    console.error("Verifier API error:", resp.status, errText);
+    return { verdict: "fail", claims: [], inputTokens: 0, outputTokens: 0, error: errText };
+  }
+
+  const data = await resp.json();
+  const inputTokens = data.usage?.input_tokens ?? 0;
+  const outputTokens = data.usage?.output_tokens ?? 0;
+  const raw = (data.content?.[0]?.text ?? "").trim();
+  const cleaned = raw.replace(/```json?\n?/g, "").replace(/```\n?/g, "").trim();
+
+  try {
+    const parsed = JSON.parse(cleaned);
+    const claims: VerifierClaim[] = Array.isArray(parsed.claims) ? parsed.claims : [];
+    const verdict: "pass" | "fail" =
+      parsed.verdict === "pass" && claims.every((c) => c.supported) ? "pass" : "fail";
+    return { verdict, claims, inputTokens, outputTokens };
+  } catch (e) {
+    console.error("Verifier JSON parse failed:", e, "raw:", raw);
+    return {
+      verdict: "fail",
+      claims: [],
+      inputTokens,
+      outputTokens,
+      error: "verifier_parse_failed",
+    };
+  }
+}
+
+async function callClaudeForDraft(
+  claudeApiKey: string,
+  userMessage: string,
+): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": claudeApiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2048,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userMessage }],
+    }),
+  });
+  if (!resp.ok) {
+    const errText = await resp.text();
+    throw new Error(`Claude API error [${resp.status}]: ${errText}`);
+  }
+  const data = await resp.json();
+  return {
+    text: (data.content?.[0]?.text ?? "").trim(),
+    inputTokens: data.usage?.input_tokens ?? 0,
+    outputTokens: data.usage?.output_tokens ?? 0,
+  };
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
