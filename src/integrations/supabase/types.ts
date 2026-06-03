@@ -139,11 +139,13 @@ export type Database = {
           published_at: string | null
           rejected_at: string | null
           rejection_reason: string | null
+          score_breakdown: Json | null
           source_material: Json | null
           status: string
           suggested_time: string | null
           verification_notes: Json | null
           verification_status: string
+          virality_score: number | null
         }
         Insert: {
           approved_at?: string | null
@@ -157,11 +159,13 @@ export type Database = {
           published_at?: string | null
           rejected_at?: string | null
           rejection_reason?: string | null
+          score_breakdown?: Json | null
           source_material?: Json | null
           status?: string
           suggested_time?: string | null
           verification_notes?: Json | null
           verification_status?: string
+          virality_score?: number | null
         }
         Update: {
           approved_at?: string | null
@@ -175,11 +179,13 @@ export type Database = {
           published_at?: string | null
           rejected_at?: string | null
           rejection_reason?: string | null
+          score_breakdown?: Json | null
           source_material?: Json | null
           status?: string
           suggested_time?: string | null
           verification_notes?: Json | null
           verification_status?: string
+          virality_score?: number | null
         }
         Relationships: []
       }

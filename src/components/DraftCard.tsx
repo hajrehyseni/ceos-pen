@@ -4,7 +4,7 @@ import { PILLARS, PillarKey } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Check, Pencil, X, Copy, Send, ChevronDown, ChevronUp, Clock, Linkedin, AlertTriangle, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Check, Pencil, X, Copy, Send, ChevronDown, ChevronUp, Clock, Linkedin, AlertTriangle, ShieldCheck, ShieldAlert, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -30,6 +30,7 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
   const [rejectionReason, setRejectionReason] = useState("");
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [verifyOpen, setVerifyOpen] = useState(false);
+  const [scoreOpen, setScoreOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const pillar = PILLARS[post.pillar as PillarKey];
@@ -163,6 +164,58 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
         );
       })()}
 
+      {/* Virality + usefulness score */}
+      {typeof post.virality_score === "number" && post.score_breakdown && (() => {
+        const sb = post.score_breakdown as any;
+        const overall = Number(post.virality_score);
+        const passes = !!sb.passes_bar;
+        const tone = passes
+          ? "border-success/40 bg-success/10 text-success"
+          : overall >= 6.5
+            ? "border-warning/40 bg-warning/10 text-warning"
+            : "border-destructive/40 bg-destructive/10 text-destructive";
+        const fixes: string[] = Array.isArray(sb.fixes) ? sb.fixes : [];
+        const u = sb.usefulness || {};
+        const Bar = ({ label, val }: { label: string; val: number }) => (
+          <div className="flex items-center gap-2 text-[11px]">
+            <span className="w-20 text-muted-foreground">{label}</span>
+            <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
+              <div className="h-full bg-current opacity-70" style={{ width: `${Math.max(0, Math.min(10, val)) * 10}%` }} />
+            </div>
+            <span className="w-6 text-right tabular-nums">{val.toFixed(1)}</span>
+          </div>
+        );
+        return (
+          <div className={`px-3 py-2 rounded-md border text-xs space-y-2 ${tone}`}>
+            <button type="button" onClick={() => setScoreOpen(!scoreOpen)} className="flex items-center gap-2 w-full text-left">
+              <Sparkles className="w-4 h-4 shrink-0" />
+              <span className="font-medium flex-1">
+                Virality {overall.toFixed(1)}/10 — {passes ? "passes the engagement bar" : "below bar"}
+                {sb.retried ? " (rewritten once)" : ""}
+              </span>
+              {scoreOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
+            {scoreOpen && (
+              <div className="space-y-2 pt-1">
+                <Bar label="Hook" val={Number(sb.hook_strength ?? 0)} />
+                <Bar label="Specific" val={Number(sb.specificity ?? 0)} />
+                <Bar label="Emotional" val={Number(sb.emotional_pull ?? 0)} />
+                <Bar label="Shareable" val={Number(sb.shareability ?? 0)} />
+                <div className="flex gap-3 pt-1 text-[11px] text-muted-foreground">
+                  <span className={u.actionable_takeaway ? "text-success" : ""}>{u.actionable_takeaway ? "✓" : "·"} actionable</span>
+                  <span className={u.contrarian_angle ? "text-success" : ""}>{u.contrarian_angle ? "✓" : "·"} contrarian</span>
+                  <span className={u.data_or_example_led ? "text-success" : ""}>{u.data_or_example_led ? "✓" : "·"} data-led</span>
+                </div>
+                {fixes.length > 0 && (
+                  <ul className="pt-1 space-y-1 pl-4 list-disc text-[11px]">
+                    {fixes.map((f, i) => <li key={i}>{f}</li>)}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
 
       {/* Content */}

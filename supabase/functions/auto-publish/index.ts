@@ -99,6 +99,24 @@ serve(async (req) => {
           continue;
         }
 
+        // Engagement gate: only the strongest drafts auto-publish.
+        if (post.engagement_estimate !== "high") {
+          console.warn(`Skipping auto-publish for post ${post.id} — engagement_estimate=${post.engagement_estimate}`);
+          await supabase.from("agent_log").insert({
+            action: "auto_publish_skipped_low_engagement",
+            api_cost_usd: 0,
+            tokens_used: 0,
+            details: {
+              post_id: post.id,
+              engagement_estimate: post.engagement_estimate,
+              virality_score: post.virality_score,
+              reason: "Post held back from auto-publish — engagement estimate is not 'high'. Needs manual review.",
+            },
+          });
+          results.push({ post_id: post.id, status: "skipped_low_engagement", engagement_estimate: post.engagement_estimate });
+          continue;
+        }
+
         const { sanitizedText: sanitizedContent, diagnostics: sanitizeDiagnostics } = sanitizeForLinkedIn(post.content);
 
         console.log("Auto-publish sanitization diagnostics", {

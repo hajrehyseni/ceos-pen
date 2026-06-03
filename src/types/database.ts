@@ -15,6 +15,8 @@ export interface Post {
   rejected_at: string | null;
   verification_status?: string | null;
   verification_notes?: any;
+  virality_score?: number | null;
+  score_breakdown?: any;
 }
 
 export interface PostMetrics {
