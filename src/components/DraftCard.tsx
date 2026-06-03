@@ -29,6 +29,7 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
   const [rejecting, setRejecting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [verifyOpen, setVerifyOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const pillar = PILLARS[post.pillar as PillarKey];
