@@ -69,14 +69,30 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // 3. Fetch news_items from last 24h
+    // 3. Fetch news_items from last 24h (today's pillar)
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
     const { data: newsItems } = await supabase
       .from("news_items")
       .select("*")
+      .eq("pillar_match", pillar)
       .gte("collected_at", yesterday)
       .order("relevance_score", { ascending: false })
       .limit(15);
+
+    // 3b. Fetch recent AI landscape items (last 48h) so every draft, on every
+    // pillar, can stay grounded in what's actually happening in AI. Skip if
+    // today's pillar IS ai_agents (already covered above).
+    const twoDaysAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
+    const { data: aiLandscape } = pillar === "ai_agents"
+      ? { data: [] as any[] }
+      : await supabase
+          .from("news_items")
+          .select("*")
+          .eq("pillar_match", "ai_agents")
+          .gte("collected_at", twoDaysAgo)
+          .order("relevance_score", { ascending: false })
+          .limit(8);
+
 
     // 4. Fetch top 3 voice_samples
     const { data: voiceSamples } = await supabase
