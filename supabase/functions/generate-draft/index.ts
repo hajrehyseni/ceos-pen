@@ -197,13 +197,24 @@ Write a LinkedIn post for the ${pillarLabel} pillar.`;
     postContent = postContent.trim();
 
     // 8. Insert into posts
-    const sourceMaterial = (newsItems ?? []).map((n) => ({
-      id: n.id,
-      title: n.title,
-      source: n.source,
-      url: n.url,
-      relevance_score: n.relevance_score,
-    }));
+    const sourceMaterial = [
+      ...(newsItems ?? []).map((n) => ({
+        id: n.id,
+        title: n.title,
+        source: n.source,
+        url: n.url,
+        relevance_score: n.relevance_score,
+        kind: "pillar" as const,
+      })),
+      ...(aiLandscape ?? []).map((n) => ({
+        id: n.id,
+        title: n.title,
+        source: n.source,
+        url: n.url,
+        relevance_score: n.relevance_score,
+        kind: "ai_landscape" as const,
+      })),
+    ];
 
     const { data: newPost, error: postError } = await supabase
       .from("posts")
