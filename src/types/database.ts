@@ -13,6 +13,8 @@ export interface Post {
   approved_at: string | null;
   published_at: string | null;
   rejected_at: string | null;
+  verification_status?: string | null;
+  verification_notes?: any;
 }
 
 export interface PostMetrics {

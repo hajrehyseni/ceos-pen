@@ -1,49 +1,83 @@
-# Make drafts reflect current AI news
+# Zero-fabrication guarantee: verifier pass on every draft
 
 ## Problem
 
-`generate-draft` pulls `news_items` from the last 24h filtered by *today's pillar only*. On non-AI days (CEO Journey, Defence Training, Curated Commentary, etc.) the model gets little or no current AI context, so posts feel detached from what's actually happening in the world.
+The system prompt already says "no fabrication", but nothing actually checks the output. Claude can still invent a stat, a study, or attribute a quote to a real company that wasn't in the news items.
 
-`collect-news` also only runs for the day's pillar, so AI headlines are only collected on Mondays.
+## Solution
 
-## Fix
+Add a **verifier pass** to `generate-draft`. After Claude writes the draft, a second Claude call cross-checks every factual claim against the supplied `news_items` + `ai_landscape` source pool. Unsupported claims either get the draft regenerated (once) or block it from auto-publishing.
 
-Two coordinated changes so every draft, on every pillar, sees fresh AI headlines:
+### What counts as a "fact" to check
+- Named entities: companies, products, people, universities, government bodies
+- Numbers: statistics, percentages, dollar/£ amounts, dates, model sizes
+- Studies / reports / research references
 
-### 1. `collect-news` — always sweep AI news daily
+The founder's own anecdotes, opinions, and observations are **exempt** — they're first-person voice, not external claims.
 
-In addition to today's pillar sweep, always run the `ai_agents` RSS queries (plus a couple of broader "latest AI news this week" queries) and store them tagged `pillar_match = 'ai_agents'`. This guarantees a rolling pool of current AI items in the DB every day.
+## Implementation
 
-### 2. `generate-draft` — inject a "Current AI Landscape" block into every prompt
+### 1. New verifier step in `generate-draft`
 
-In the user message sent to Claude, add a new section alongside the existing pillar `NEWS ITEMS`:
+After Claude returns `postContent`, call Claude Haiku (cheap + fast) with structured JSON output:
 
 ```
-CURRENT AI LANDSCAPE (last 48h — use to keep the post grounded in what's
-actually happening, even if the pillar isn't AI):
-1. <title> (<source>) — <url>
-   <summary>
-...
+SYSTEM: You are a fact-checker. Given a draft post and a list of source
+items (titles, sources, summaries), identify every factual claim in the
+draft that references: a named company/person/product/institution, a
+number/statistic/date, or a study/report. For each claim, decide if it
+is supported by the sources. Personal anecdotes and the author's own
+opinions are exempt — do not flag them.
+
+Return JSON:
+{
+  "verdict": "pass" | "fail",
+  "claims": [
+    { "claim": "...", "supported": true|false, "source_index": 3|null, "reason": "..." }
+  ]
+}
 ```
 
-- Pull top 5–8 `news_items` where `pillar_match = 'ai_agents'` from the last 48h, ordered by `relevance_score`.
-- On AI-pillar days these already drive the post, so skip the extra block to avoid duplication.
-- Update SYSTEM_PROMPT with one line: *"You may reference the CURRENT AI LANDSCAPE items to make the post feel timely, but only if it fits the pillar naturally. Never force it. Still no fabrication — only facts from the provided items."*
+Pass = every flagged claim has `supported: true`. Otherwise fail.
 
-### 3. Source-material tracking
+### 2. Retry logic
 
-Include the AI-landscape items in `source_material` on the post row so the dashboard still shows what grounded the draft.
+- If verdict = `fail`: regenerate the draft **once** with an explicit instruction listing the unsupported claims and telling the model to remove them.
+- If still failing on the retry: save the post with `status = 'draft'` and `engagement_estimate = 'needs_review'`, plus a new column `verification_status = 'failed'` and `verification_notes` (JSON) so it surfaces in the dashboard. **Auto-publish must skip these.**
+- If verdict = `pass`: save with `verification_status = 'passed'` and `verification_notes` (full claim list).
 
-## Out of scope
+### 3. Schema additions
 
-- No live web-fetch at draft time (kept for a later iteration if needed).
-- No schema changes.
-- No UI changes.
-- No change to pg_cron schedules — `collect-news` already runs daily, we're just widening what it collects.
+Migration on `posts`:
+- `verification_status TEXT` — `passed`, `failed`, `not_run` (default `not_run`)
+- `verification_notes JSONB` — the full claim list from the verifier
+
+### 4. Auto-publish guard
+
+In `auto-publish`, skip any post where `verification_status != 'passed'`. Log it to `agent_log` as `auto_publish_skipped_verification`.
+
+### 5. Dashboard surfacing
+
+Minimal UI change: in `DraftCard`, show a small badge:
+- Green "Verified" when `verification_status = 'passed'`
+- Amber "Needs review" when `verification_status = 'failed'` with tooltip showing the unsupported claims
+
+This lets the CEO see at a glance which drafts need eyeballs.
+
+### 6. System prompt reinforcement
+
+Update SYSTEM_PROMPT in `generate-draft` with an explicit list mirroring the verifier's rules so the model is less likely to fail on the first pass:
+
+> Never invent company names, people, products, institutions, statistics, percentages, dates, dollar amounts, study names, or research citations. If the supplied news items don't support a specific fact, omit it — describe the pattern in your own words instead.
 
 ## Cost impact
 
-- `collect-news`: +1 Claude Haiku scoring call per day (~$0.001/day).
-- `generate-draft`: +5–8 short items in the prompt (~300–500 input tokens, <$0.002/draft).
+- Verifier: Claude Haiku, ~$0.001 per draft (input ~2k tokens, output ~500).
+- Retry happens maybe 10–20% of the time → ~$0.002 average per draft.
+- Negligible vs. the Sonnet generation cost.
 
-Negligible.
+## Out of scope
+
+- No live web verification (we trust the news_items as the ground truth).
+- No change to RSS collection or AI landscape sweep — already shipped.
+- No change to LinkedIn publishing path beyond the auto-publish guard.

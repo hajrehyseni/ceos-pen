@@ -142,6 +142,8 @@ export type Database = {
           source_material: Json | null
           status: string
           suggested_time: string | null
+          verification_notes: Json | null
+          verification_status: string
         }
         Insert: {
           approved_at?: string | null
@@ -158,6 +160,8 @@ export type Database = {
           source_material?: Json | null
           status?: string
           suggested_time?: string | null
+          verification_notes?: Json | null
+          verification_status?: string
         }
         Update: {
           approved_at?: string | null
@@ -174,6 +178,8 @@ export type Database = {
           source_material?: Json | null
           status?: string
           suggested_time?: string | null
+          verification_notes?: Json | null
+          verification_status?: string
         }
         Relationships: []
       }

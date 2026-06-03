@@ -38,14 +38,134 @@ const DAY_SUGGESTED_TIMES: Record<number, string> = {
 const SYSTEM_PROMPT = `You are CEO PEN — a ghostwriting agent for a founder-educator who builds AI workflows. Write posts people REMEMBER, not just good LinkedIn posts. Voice: observational, specific, human pacing, subtle British humour, founder energy — like Ethan Mollick crossed with a tired-of-corporate-theatre operator. RULES: plain English, short sentences, fragments OK, no transitions like Moreover/Additionally/In today's world, no AI-transforming-everything openers, no lists-as-insights, every sentence earns its place. HOOKS must create: tension, contradiction, curiosity, emotional truth, or surprise. Never: AI is changing everything / Here's what I learned / 5 things / most important skill in 2024. STORIES come from: real meetings gone wrong, training sessions, AI implementations that broke, founder conversations, workflow failures, executive surprises. Use scenes, tension, contrast, occasional dialogue, uncomfortable truths. STRUCTURE: 150-350 words. Four shapes — Scene, Observation, Confession, Contrast. PILLARS: AI IN THE ROOM, OPERATOR OBSERVATIONS, FOUNDER REALISM, EXECUTIVE EDUCATION, THE AI TRANSITION. ANTI-AI CHECKLIST: no generic openers, no bullet-point narratives, no concept-without-moment, no In today's world, no motivational endings, nothing anyone could write, nothing polished-and-safe, nothing content-feeling. FINAL TEST: sounds like a real person building through the AI transition in public? Yes = publish. Sounds like a LinkedIn post = rewrite. BRITISH ENGLISH: optimise, organise, analyse, behaviour, colour, centre, recognise.
 
 OPERATING CONSTRAINTS (system requirements, not style)
-- Only reference facts, statistics, studies, and source names that appear in the provided NEWS ITEMS. Never fabricate citations, statistics, named people, companies, or numbers. If the sources do not support a detail, leave it out.
+- ZERO FABRICATION. Never invent company names, people, products, institutions, statistics, percentages, dates, dollar/pound amounts, study names, or research citations. Every named entity, number, and study reference must come directly from the supplied NEWS ITEMS or CURRENT AI LANDSCAPE. If the sources don't support a specific fact, omit it — describe the pattern in your own words instead.
+- Personal anecdotes, scenes, opinions, and the author's own observations are encouraged and don't need a source — they're first-person voice, not external claims.
 - No hashtags. No emojis.
 - Output ONLY the post text — no preamble, no title, no commentary.
-- You may reference the CURRENT AI LANDSCAPE items to make the post feel timely, but only if it fits the pillar naturally. Never force it. Still no fabrication — only facts from the provided items.`;
+- You may reference the CURRENT AI LANDSCAPE items to make the post feel timely, but only if it fits the pillar naturally. Never force it.`;
+
+const VERIFIER_SYSTEM_PROMPT = `You are a strict fact-checker. You receive a LinkedIn draft and a list of SOURCE ITEMS (titles, sources, summaries). Your job: identify every factual claim in the draft that references either (a) a named company, person, product, institution, university or government body, (b) a specific number, statistic, percentage, date, or monetary amount, or (c) a named study, report, or research finding. For each claim, decide whether it is directly supported by at least one source item.
+
+EXEMPT (do NOT flag): the author's personal anecdotes, scenes from their own meetings/work, opinions, predictions, observations, generalities ("AI is being adopted"), and rhetorical questions. These are first-person voice, not external factual claims.
+
+Return ONLY valid JSON, no markdown, in this exact shape:
+{
+  "verdict": "pass" | "fail",
+  "claims": [
+    { "claim": "<exact phrase from draft>", "type": "entity"|"number"|"study", "supported": true|false, "source_index": <1-based index into sources, or null>, "reason": "<one short sentence>" }
+  ]
+}
+
+Verdict is "pass" only if every claim has supported=true. Otherwise "fail".`;
 
 // Claude pricing: sonnet input $3/MTok, output $15/MTok
 const INPUT_COST_PER_TOKEN = 3 / 1_000_000;
 const OUTPUT_COST_PER_TOKEN = 15 / 1_000_000;
+// Haiku pricing (used by verifier): $0.25 / $1.25 per MTok
+const HAIKU_INPUT_COST_PER_TOKEN = 0.25 / 1_000_000;
+const HAIKU_OUTPUT_COST_PER_TOKEN = 1.25 / 1_000_000;
+
+type VerifierClaim = {
+  claim: string;
+  type: "entity" | "number" | "study";
+  supported: boolean;
+  source_index: number | null;
+  reason: string;
+};
+
+type VerifierResult = {
+  verdict: "pass" | "fail";
+  claims: VerifierClaim[];
+  inputTokens: number;
+  outputTokens: number;
+  error?: string;
+};
+
+async function verifyDraft(
+  draft: string,
+  sources: Array<{ title: string; source: string; summary: string | null }>,
+  claudeApiKey: string,
+): Promise<VerifierResult> {
+  const sourceBlock = sources
+    .map((s, i) => `${i + 1}. ${s.title} (${s.source})\n   ${s.summary ?? ""}`)
+    .join("\n");
+
+  const userMsg = `SOURCE ITEMS:\n${sourceBlock}\n\nDRAFT POST:\n"""${draft}"""\n\nFact-check the draft against the sources. Return JSON only.`;
+
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": claudeApiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-3-haiku-20240307",
+      max_tokens: 1500,
+      system: VERIFIER_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userMsg }],
+    }),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    console.error("Verifier API error:", resp.status, errText);
+    return { verdict: "fail", claims: [], inputTokens: 0, outputTokens: 0, error: errText };
+  }
+
+  const data = await resp.json();
+  const inputTokens = data.usage?.input_tokens ?? 0;
+  const outputTokens = data.usage?.output_tokens ?? 0;
+  const raw = (data.content?.[0]?.text ?? "").trim();
+  const cleaned = raw.replace(/```json?\n?/g, "").replace(/```\n?/g, "").trim();
+
+  try {
+    const parsed = JSON.parse(cleaned);
+    const claims: VerifierClaim[] = Array.isArray(parsed.claims) ? parsed.claims : [];
+    const verdict: "pass" | "fail" =
+      parsed.verdict === "pass" && claims.every((c) => c.supported) ? "pass" : "fail";
+    return { verdict, claims, inputTokens, outputTokens };
+  } catch (e) {
+    console.error("Verifier JSON parse failed:", e, "raw:", raw);
+    return {
+      verdict: "fail",
+      claims: [],
+      inputTokens,
+      outputTokens,
+      error: "verifier_parse_failed",
+    };
+  }
+}
+
+async function callClaudeForDraft(
+  claudeApiKey: string,
+  userMessage: string,
+): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": claudeApiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2048,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userMessage }],
+    }),
+  });
+  if (!resp.ok) {
+    const errText = await resp.text();
+    throw new Error(`Claude API error [${resp.status}]: ${errText}`);
+  }
+  const data = await resp.json();
+  return {
+    text: (data.content?.[0]?.text ?? "").trim(),
+    inputTokens: data.usage?.input_tokens ?? 0,
+    outputTokens: data.usage?.output_tokens ?? 0,
+  };
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -160,41 +280,60 @@ ${rejectSection}
 
 Write a LinkedIn post for the ${pillarLabel} pillar.`;
 
-    // 6. Call Claude API
-    const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": CLAUDE_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 2048,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: userMessage }],
-      }),
-    });
+    // 6. Build verifier source pool (same items shown to the writer)
+    const verifierSources = [
+      ...(newsItems ?? []),
+      ...(aiLandscape ?? []),
+    ].map((n) => ({
+      title: n.title ?? "Untitled",
+      source: n.source ?? "Unknown",
+      summary: n.summary ?? null,
+    }));
 
-    if (!claudeResponse.ok) {
-      const errText = await claudeResponse.text();
-      console.error("Claude API error:", claudeResponse.status, errText);
-      throw new Error(`Claude API error [${claudeResponse.status}]: ${errText}`);
+    // 7. Generate draft → verify → retry once if unsupported claims
+    let firstDraft = await callClaudeForDraft(CLAUDE_API_KEY, userMessage);
+    let postContent = firstDraft.text;
+    let genInputTokens = firstDraft.inputTokens;
+    let genOutputTokens = firstDraft.outputTokens;
+
+    let verifier = await verifyDraft(postContent, verifierSources, CLAUDE_API_KEY);
+    let verifierInputTokens = verifier.inputTokens;
+    let verifierOutputTokens = verifier.outputTokens;
+    let retried = false;
+
+    if (verifier.verdict === "fail") {
+      const unsupported = verifier.claims
+        .filter((c) => !c.supported)
+        .map((c) => `- "${c.claim}" (${c.reason})`)
+        .join("\n");
+
+      const retryMessage = `${userMessage}
+
+⚠️ PREVIOUS ATTEMPT FAILED FACT-CHECK. These claims were NOT supported by the source material:
+${unsupported || "(no specific claims captured; rewrite cautiously)"}
+
+Rewrite the post. Remove or rephrase every unsupported claim. Do not invent any company names, people, products, statistics, numbers, dates, or studies that aren't in the supplied sources. If you can't ground a fact, leave it out and lean on the author's own observations instead.`;
+
+      console.log(`Verifier failed on first pass — retrying with explicit guidance. ${verifier.claims.filter((c) => !c.supported).length} unsupported claims.`);
+      const retryDraft = await callClaudeForDraft(CLAUDE_API_KEY, retryMessage);
+      postContent = retryDraft.text;
+      genInputTokens += retryDraft.inputTokens;
+      genOutputTokens += retryDraft.outputTokens;
+      retried = true;
+
+      verifier = await verifyDraft(postContent, verifierSources, CLAUDE_API_KEY);
+      verifierInputTokens += verifier.inputTokens;
+      verifierOutputTokens += verifier.outputTokens;
     }
 
-    const claudeData = await claudeResponse.json();
-    let postContent: string =
-      claudeData.content?.[0]?.text ?? "";
-
-    const inputTokens = claudeData.usage?.input_tokens ?? 0;
-    const outputTokens = claudeData.usage?.output_tokens ?? 0;
-    const totalTokens = inputTokens + outputTokens;
-    const apiCost =
-      inputTokens * INPUT_COST_PER_TOKEN + outputTokens * OUTPUT_COST_PER_TOKEN;
-
-    // 7. Tidy whitespace. CEO PEN v2 defines its own endings (a real question
-    //    or truth) and the project bans emojis, so no forced "Ta-ta 🙃" sign-off.
     postContent = postContent.trim();
+
+    const apiCost =
+      genInputTokens * INPUT_COST_PER_TOKEN +
+      genOutputTokens * OUTPUT_COST_PER_TOKEN +
+      verifierInputTokens * HAIKU_INPUT_COST_PER_TOKEN +
+      verifierOutputTokens * HAIKU_OUTPUT_COST_PER_TOKEN;
+    const totalTokens = genInputTokens + genOutputTokens + verifierInputTokens + verifierOutputTokens;
 
     // 8. Insert into posts
     const sourceMaterial = [
@@ -216,6 +355,14 @@ Write a LinkedIn post for the ${pillarLabel} pillar.`;
       })),
     ];
 
+    const verificationNotes = {
+      verdict: verifier.verdict,
+      retried,
+      claims: verifier.claims,
+      verifier_error: verifier.error ?? null,
+      checked_at: new Date().toISOString(),
+    };
+
     const { data: newPost, error: postError } = await supabase
       .from("posts")
       .insert({
@@ -223,9 +370,11 @@ Write a LinkedIn post for the ${pillarLabel} pillar.`;
         pillar,
         status: "draft",
         format: "text",
-         suggested_time: DAY_SUGGESTED_TIMES[dayOfWeek] ?? "09:00:00",
+        suggested_time: DAY_SUGGESTED_TIMES[dayOfWeek] ?? "09:00:00",
         engagement_estimate: "medium",
         source_material: sourceMaterial,
+        verification_status: verifier.verdict === "pass" ? "passed" : "failed",
+        verification_notes: verificationNotes,
       })
       .select("id")
       .single();
@@ -240,10 +389,17 @@ Write a LinkedIn post for the ${pillarLabel} pillar.`;
       details: {
         pillar,
         model: "claude-sonnet-4-20250514",
-        input_tokens: inputTokens,
-        output_tokens: outputTokens,
+        verifier_model: "claude-3-haiku-20240307",
+        gen_input_tokens: genInputTokens,
+        gen_output_tokens: genOutputTokens,
+        verifier_input_tokens: verifierInputTokens,
+        verifier_output_tokens: verifierOutputTokens,
         post_id: newPost.id,
         news_items_count: newsItems?.length ?? 0,
+        ai_landscape_count: aiLandscape?.length ?? 0,
+        verification_status: verifier.verdict === "pass" ? "passed" : "failed",
+        verifier_retried: retried,
+        unsupported_claim_count: verifier.claims.filter((c) => !c.supported).length,
       },
     });
 
@@ -253,6 +409,8 @@ Write a LinkedIn post for the ${pillarLabel} pillar.`;
         status: "success",
         post_id: newPost.id,
         cost: parseFloat(apiCost.toFixed(6)),
+        verification_status: verifier.verdict === "pass" ? "passed" : "failed",
+        retried,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
