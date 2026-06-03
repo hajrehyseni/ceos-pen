@@ -395,7 +395,7 @@ ${hookList}
 
 Write the full LinkedIn post for the ${pillarLabel} pillar. 150-350 words. Output ONLY the post text.`;
 
-    let firstDraft = await callClaude(CLAUDE_API_KEY, "claude-sonnet-4-20250514", SYSTEM_PROMPT, bodyUserMessage);
+    let firstDraft = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, SYSTEM_PROMPT, bodyUserMessage);
     let postContent = firstDraft.text;
     let genInputTokens = firstDraft.inputTokens;
     let genOutputTokens = firstDraft.outputTokens;
@@ -419,7 +419,7 @@ Write the full LinkedIn post for the ${pillarLabel} pillar. 150-350 words. Outpu
 ${unsupported || "(rewrite cautiously)"}
 
 Rewrite the post. Remove or rephrase every unsupported claim. Do not invent companies, people, products, statistics, numbers, dates, or studies that aren't in the supplied sources.`;
-      const retryDraft = await callClaude(CLAUDE_API_KEY, "claude-sonnet-4-20250514", SYSTEM_PROMPT, retryMessage);
+      const retryDraft = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, SYSTEM_PROMPT, retryMessage);
       postContent = retryDraft.text;
       genInputTokens += retryDraft.inputTokens;
       genOutputTokens += retryDraft.outputTokens;
@@ -443,7 +443,7 @@ Rewrite the post. Remove or rephrase every unsupported claim. Do not invent comp
 ${fixList}
 
 Keep zero-fabrication rules. Output ONLY the post text.`;
-      const rewrite = await callClaude(CLAUDE_API_KEY, "claude-sonnet-4-20250514", SYSTEM_PROMPT, rewriteMessage);
+      const rewrite = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, SYSTEM_PROMPT, rewriteMessage);
       const candidate = rewrite.text;
       genInputTokens += rewrite.inputTokens;
       genOutputTokens += rewrite.outputTokens;
@@ -475,8 +475,8 @@ Keep zero-fabrication rules. Output ONLY the post text.`;
       genOutputTokens * OUTPUT_COST_PER_TOKEN +
       hookBrainstorm.inputTokens * INPUT_COST_PER_TOKEN +
       hookBrainstorm.outputTokens * OUTPUT_COST_PER_TOKEN +
-      (verifierInputTokens + scorerInputTokens) * HAIKU_INPUT_COST_PER_TOKEN +
-      (verifierOutputTokens + scorerOutputTokens) * HAIKU_OUTPUT_COST_PER_TOKEN;
+      (verifierInputTokens + scorerInputTokens) * INPUT_COST_PER_TOKEN +
+      (verifierOutputTokens + scorerOutputTokens) * OUTPUT_COST_PER_TOKEN;
     const totalTokens =
       genInputTokens + genOutputTokens +
       hookBrainstorm.inputTokens + hookBrainstorm.outputTokens +
@@ -529,7 +529,7 @@ Keep zero-fabrication rules. Output ONLY the post text.`;
       api_cost_usd: parseFloat(apiCost.toFixed(6)),
       tokens_used: totalTokens,
       details: {
-        pillar, model: "claude-sonnet-4-20250514", verifier_model: "claude-3-5-haiku-20241022",
+        pillar, model: CLAUDE_GENERATION_MODEL, verifier_model: CLAUDE_VERIFIER_MODEL,
         hook_input_tokens: hookBrainstorm.inputTokens, hook_output_tokens: hookBrainstorm.outputTokens,
         gen_input_tokens: genInputTokens, gen_output_tokens: genOutputTokens,
         verifier_input_tokens: verifierInputTokens, verifier_output_tokens: verifierOutputTokens,
