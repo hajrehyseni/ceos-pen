@@ -1,83 +1,94 @@
-# Zero-fabrication guarantee: verifier pass on every draft
+# Plan: Maximum engagement, usefulness, and virality
 
-## Problem
+Stack three reinforcing mechanisms on top of the existing draft → verify pipeline. Final pipeline becomes:
 
-The system prompt already says "no fabrication", but nothing actually checks the output. Claude can still invent a stat, a study, or attribute a quote to a real company that wasn't in the news items.
-
-## Solution
-
-Add a **verifier pass** to `generate-draft`. After Claude writes the draft, a second Claude call cross-checks every factual claim against the supplied `news_items` + `ai_landscape` source pool. Unsupported claims either get the draft regenerated (once) or block it from auto-publishing.
-
-### What counts as a "fact" to check
-- Named entities: companies, products, people, universities, government bodies
-- Numbers: statistics, percentages, dollar/£ amounts, dates, model sizes
-- Studies / reports / research references
-
-The founder's own anecdotes, opinions, and observations are **exempt** — they're first-person voice, not external claims.
-
-## Implementation
-
-### 1. New verifier step in `generate-draft`
-
-After Claude returns `postContent`, call Claude Haiku (cheap + fast) with structured JSON output:
-
+```text
+Hook brainstorm (3 variants, pick best)
+        ↓
+Draft body around winning hook (with winner examples)
+        ↓
+Fact-check verifier (existing)
+        ↓
+Virality + usefulness scorer (0–10 each)
+        ↓
+  pass → save as 'high'
+  fail → one rewrite with specific fixes → rescore → save
+        ↓
+Auto-publish gate: verification=passed AND engagement_estimate='high'
 ```
-SYSTEM: You are a fact-checker. Given a draft post and a list of source
-items (titles, sources, summaries), identify every factual claim in the
-draft that references: a named company/person/product/institution, a
-number/statistic/date, or a study/report. For each claim, decide if it
-is supported by the sources. Personal anecdotes and the author's own
-opinions are exempt — do not flag them.
 
-Return JSON:
+## 1. Hook-first generation (`generate-draft`)
+
+New first Claude Sonnet call asks for **3 distinct hook openers** for today's pillar + news, each using a different shape (tension / contradiction / confession / scene). Returns JSON. Second call picks the strongest hook and writes the 150–350 word body around it. Same total token budget; structurally stronger openers.
+
+## 2. Winner pattern library (few-shot)
+
+Before generating, query `post_metrics` joined to `posts` for the top 3 posts by `(likes + 2*comments + 3*reposts)` over the last 90 days. Inject as `HIGH-PERFORMING PAST POSTS — match this energy` block in the user message. Falls back to `voice_samples` (current behaviour) when metrics are thin.
+
+## 3. Virality + usefulness scorer (third Claude Haiku pass)
+
+New `scoreDraft` helper. Returns JSON:
+
+```json
 {
-  "verdict": "pass" | "fail",
-  "claims": [
-    { "claim": "...", "supported": true|false, "source_index": 3|null, "reason": "..." }
-  ]
+  "hook_strength": 0-10,
+  "specificity": 0-10,
+  "emotional_pull": 0-10,
+  "shareability": 0-10,
+  "usefulness": { "actionable_takeaway": bool, "contrarian_angle": bool, "data_or_example_led": bool },
+  "overall": 0-10,
+  "fixes": ["...", "..."]
 }
 ```
 
-Pass = every flagged claim has `supported: true`. Otherwise fail.
+**Pass criteria (all required):**
+- `overall ≥ 7.5`
+- `hook_strength ≥ 7`
+- `usefulness.actionable_takeaway === true` AND (`usefulness.contrarian_angle === true` OR `usefulness.data_or_example_led === true`)
 
-### 2. Retry logic
+**Fail → one rewrite** with the `fixes` array appended to the prompt, then rescore. Final score determines `engagement_estimate`:
+- pass → `high`
+- borderline (overall 6.5–7.5) → `medium`
+- below → `low`
 
-- If verdict = `fail`: regenerate the draft **once** with an explicit instruction listing the unsupported claims and telling the model to remove them.
-- If still failing on the retry: save the post with `status = 'draft'` and `engagement_estimate = 'needs_review'`, plus a new column `verification_status = 'failed'` and `verification_notes` (JSON) so it surfaces in the dashboard. **Auto-publish must skip these.**
-- If verdict = `pass`: save with `verification_status = 'passed'` and `verification_notes` (full claim list).
+## 4. Auto-publish gate (`auto-publish`)
 
-### 3. Schema additions
+Tighten to:
+```ts
+verification_status === 'passed' AND engagement_estimate === 'high'
+```
+Anything else stays in draft queue for manual review. Log `auto_publish_skipped_low_engagement` when held back.
+
+## 5. Schema additions
 
 Migration on `posts`:
-- `verification_status TEXT` — `passed`, `failed`, `not_run` (default `not_run`)
-- `verification_notes JSONB` — the full claim list from the verifier
+- `virality_score numeric` — overall 0–10
+- `score_breakdown jsonb` — full scorer JSON for audit/UI
 
-### 4. Auto-publish guard
+## 6. UI (`DraftCard.tsx`)
 
-In `auto-publish`, skip any post where `verification_status != 'passed'`. Log it to `agent_log` as `auto_publish_skipped_verification`.
+Add a compact score badge next to verification badge:
+- Pill with overall score (green ≥7.5, amber 6.5–7.5, red <6.5)
+- Expand reveals hook/specificity/emotional/shareability bars and the three usefulness booleans
+- Show `fixes` list when score is below the bar
 
-### 5. Dashboard surfacing
+## 7. Memory updates
 
-Minimal UI change: in `DraftCard`, show a small badge:
-- Green "Verified" when `verification_status = 'passed'`
-- Amber "Needs review" when `verification_status = 'failed'` with tooltip showing the unsupported claims
+- Update `mem://features/ai-generation-logic` — note hook-first, winner examples, scorer gate
+- Update `mem://features/post-workflow` — auto-publish now requires `high` engagement
+- New `mem://features/virality-scorer` — pass criteria, weights, retry behaviour
+- Update `mem://index.md` Core: "Auto-publish requires verified + high engagement score."
 
-This lets the CEO see at a glance which drafts need eyeballs.
+## Technical details
 
-### 6. System prompt reinforcement
-
-Update SYSTEM_PROMPT in `generate-draft` with an explicit list mirroring the verifier's rules so the model is less likely to fail on the first pass:
-
-> Never invent company names, people, products, institutions, statistics, percentages, dates, dollar amounts, study names, or research citations. If the supplied news items don't support a specific fact, omit it — describe the pattern in your own words instead.
-
-## Cost impact
-
-- Verifier: Claude Haiku, ~$0.001 per draft (input ~2k tokens, output ~500).
-- Retry happens maybe 10–20% of the time → ~$0.002 average per draft.
-- Negligible vs. the Sonnet generation cost.
+- **Models:** Hook brainstorm + body + rewrite use Sonnet (`claude-sonnet-4-20250514`). Scorer uses Haiku (`claude-3-haiku-20240307`).
+- **Cost:** +1 Sonnet call (~$0.01) for hook brainstorm, +1–2 Haiku calls (~$0.002) for scoring. Roughly $0.012–$0.015 extra per draft.
+- **Token tracking:** Extend `agent_log.details` with `hook_input_tokens`, `hook_output_tokens`, `scorer_input_tokens`, `scorer_output_tokens`, `scorer_retried`.
+- **Order matters:** Fact verifier runs BEFORE scorer — no point scoring a hallucinated draft. Scorer rewrite re-runs the verifier on the new draft.
+- **Winner query:** Single Supabase RPC or inline join; cap at 3 examples, posts older than 7 days only (so metrics are settled).
 
 ## Out of scope
 
-- No live web verification (we trust the news_items as the ground truth).
-- No change to RSS collection or AI landscape sweep — already shipped.
-- No change to LinkedIn publishing path beyond the auto-publish guard.
+- No changes to `collect-news` or RSS pipeline
+- No changes to LinkedIn publishing path beyond the auto-publish gate
+- No live A/B testing infrastructure
