@@ -717,6 +717,8 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
       specificity: score.specificity,
       emotional_pull: score.emotional_pull,
       shareability: score.shareability,
+      humour_fit: score.humour_fit,
+      lead_magnet_fit: score.lead_magnet_fit,
       usefulness: score.usefulness,
       overall: score.overall,
       fixes: score.fixes,
