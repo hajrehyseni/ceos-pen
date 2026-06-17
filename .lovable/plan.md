@@ -1,86 +1,82 @@
+## **Mandatory Lead Generation Rule for AI News**
 
-# Visual Studio — tightening pass + smoke test
+Every AI News article must guide users towards our AI Readiness Scorecard:
 
-Most of Wave 4 already shipped last turn (six generators, six previews, exports). This pass tightens it to match your delivery order, swaps the tab strip for a single CTA, adds a visual quality scorer, and runs the smoke test you asked for.
+[https://build.londonra.com](https://build.londonra.com)
 
-## 1. Single "Create Visual" entry on draft cards
+This is not optional.
 
-Replace the always-visible Visual Studio collapsible header with one primary button on each draft card:
+The AI News section is not just there to show interesting stories. It is a lead-generation engine for London Royal Academy / Build to Certify.
 
-```
-[ Create Visual ]
-```
+The purpose of every article is to turn daily AI attention into:
 
-Click → opens a `Dialog` (mobile-friendly sheet on small screens) containing the same six tabs **in your priority order**: Carousel → Poll → Reply → Image → Infographic → Chart. Default tab = Carousel. Closing the dialog leaves the card clean — no NASA control panel.
+- AI Readiness Scorecard traffic
+- qualified leads
+- LinkedIn engagement
+- future workshop conversations
+- business development opportunities
 
-Files: edit `src/components/DraftCard.tsx`, edit `src/components/visual-studio/VisualStudio.tsx` to render inside a `Dialog`/`Sheet` instead of `Collapsible`, reorder tabs.
+Every AI News article must include a clear route to the lead magnet.
 
-## 2. Visual quality scorer (6 dimensions)
+Each article card must include:
 
-New shared edge function `score-visual` (Claude Sonnet 4.5). Every generator calls it after producing the payload and stores the result in `visual_assets.payload.quality`.
+- Why this story matters
+- What it means for organisations
+- A CEO-style LinkedIn angle
+- A visual idea
+- A suggested post hook
+- A suggested CTA to the AI Readiness Scorecard
+- A first-comment CTA option
+- A “Generate post with scorecard CTA” button
+- A “Create visual with scorecard CTA” button
 
-Dimensions, each 0–10:
-- `mobile_readability` — text size, contrast, line length on a phone
-- `visual_clarity` — composition, hierarchy, not overcrowded
-- `hook_strength` — first slide / question / overlay grabs attention
-- `cta_fit` — does build.londonra.com land naturally (or is it correctly absent)
-- `source_confidence` — claims tie back to provided sources, zero fabrication
-- `export_readiness` — usable on LinkedIn today without editing
+The CTA must always connect the news story back to AI readiness.
 
-Stored as `{ overall, mobile_readability, ..., notes:[] }`. UI: small badge under each preview — green if `overall ≥ 7`, amber + "needs improvement" pill below 7, with one-line notes expandable.
+For example, if the article is about AI agents, the CTA should connect to whether the organisation is ready to use AI agents properly.
 
-Files: new `supabase/functions/_shared/visual-scorer.ts`, call it from each `gen-*` function before saving; new `<QualityBadge />` rendered by each preview component.
+If the article is about AI regulation, the CTA should connect to whether the organisation has the right governance and readiness.
 
-## 3. CTA discipline
+If the article is about AI productivity, the CTA should connect to whether the organisation knows where AI can genuinely save time.
 
-Update the system prompts for `gen-carousel`, `gen-infographic`, `gen-image-post`, `gen-poll` to add the rule explicitly:
+If the article is about AI in education, leadership, automation, tools, or enterprise adoption, the CTA must connect naturally to the AI Readiness Scorecard.
 
-> The link `https://build.londonra.com` must appear ONCE, and only where it reads as a useful next step. If it would feel forced (e.g. the post is a pure observation with no relevant offer), omit it entirely. The scorer will mark you down for shoving it in.
+CTA examples:
 
-Reply assistant already follows this rule.
+- “If this story makes you wonder where your organisation really stands with AI, start with the AI Readiness Scorecard: [https://build.londonra.com”](https://build.londonra.com”)
+- “Before buying another shiny AI tool, check whether your team is actually ready to use it properly: [https://build.londonra.com”](https://build.londonra.com”)
+- “AI news is interesting. AI readiness is what turns it into action. Start here: [https://build.londonra.com”](https://build.londonra.com”)
+- “If your team is talking about AI but still relying on guesswork, the scorecard is a good place to start: [https://build.londonra.com”](https://build.londonra.com”)
+- “This is exactly why we built the AI Readiness Scorecard — to help teams see where they are strong, where they are guessing, and where AI can actually create value: [https://build.londonra.com”](https://build.londonra.com”)
 
-## 4. Smoke test (after the above ships)
+Rules:
 
-I will pick a real existing draft (most recent `status='draft'` with at least one source), then in one script run:
+- Every article must have a scorecard CTA.
+- Every post generated from AI News must include the scorecard CTA either in the post or first comment.
+- Every carousel generated from AI News must include the scorecard CTA on the final slide.
+- Every infographic generated from AI News must include the scorecard CTA in the caption or footer.
+- Every poll generated from AI News must include the scorecard CTA in the follow-up comment.
+- Every image post generated from AI News must include the scorecard CTA in the caption or first comment.
+- Use the link once per content package unless manually added again.
+- Do not force the CTA awkwardly into the middle of the post.
+- Do not make it sound desperate.
+- Do not use “click here”.
+- Do not use hard-sell language.
+- The CTA should feel like the natural next step after reading the article.
 
-1. `gen-carousel` → export PDF + PNG zip
-2. `gen-poll`
-3. `reply-assistant` against a sample LinkedIn comment
-4. `gen-image-post`
-5. `gen-infographic` → export PNG
-6. `gen-chart` — only attempt if the chosen draft has numeric data in its sources; otherwise capture the "no verified data" empty state
+Add lead-generation scoring to every article and asset:
 
-For each, I'll:
-- save the payload as JSON to `/mnt/documents/visual-studio-smoke/<kind>.json`
-- drive Playwright against the running preview, open the draft, click Create Visual, switch to each tab, screenshot the rendered preview at mobile width (390×844)
-- save the exported PDF / PNG / ZIP to `/mnt/documents/visual-studio-smoke/exports/`
-- write `report.md` with all six quality scorecards, screenshots embedded, files linked via `<presentation-artifact>`
+- Lead magnet fit: 1–10
+- CTA naturalness: 1–10
+- Traffic capture potential: 1–10
+- Business development relevance: 1–10
+- Sales pressure: Low / Medium / High
 
-You'll get one summary message with the screenshots and download links so you can judge it from your phone.
+If sales pressure is High, automatically rewrite the CTA to make it softer and more useful.
 
-## Out of scope
+Definition of done:
 
-- Replacing the in-app preview with server-side rendered hi-res PNGs (we'll keep client-side `html-to-image` — fast, good enough for LinkedIn).
-- Adding an LLM "retry until score ≥ 7" loop (visible badge is enough this round; we'll add auto-retry if scores come back consistently low).
+The AI News section is only complete when every verified article can be turned into a LinkedIn post, carousel, infographic, poll, image post, or reply that naturally guides interested readers to:
 
-## Files
+[https://build.londonra.com](https://build.londonra.com)
 
-New:
-- `supabase/functions/_shared/visual-scorer.ts`
-
-Edited:
-- `supabase/functions/gen-carousel/index.ts`
-- `supabase/functions/gen-infographic/index.ts`
-- `supabase/functions/gen-image-post/index.ts`
-- `supabase/functions/gen-chart/index.ts`
-- `supabase/functions/gen-poll/index.ts`
-- `src/components/DraftCard.tsx`
-- `src/components/visual-studio/VisualStudio.tsx`
-- `src/components/visual-studio/CarouselPreview.tsx`
-- `src/components/visual-studio/InfographicPreview.tsx`
-- `src/components/visual-studio/ImagePostPreview.tsx`
-- `src/components/visual-studio/ChartPreview.tsx`
-- `src/components/visual-studio/PollPreview.tsx`
-
-New shared component:
-- `src/components/visual-studio/QualityBadge.tsx`
+The app must help us capture traffic from daily AI news and turn it into AI Readiness Scorecard completions, qualified conversations, and future training/workshop leads.
