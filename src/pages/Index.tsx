@@ -89,7 +89,7 @@ export default function Index() {
         onDataRefresh={fetchData}
       />
 
-      <main className="max-w-screen-sm mx-auto px-3 py-3 space-y-4">
+      <main className="max-w-screen-sm mx-auto px-4 py-4 space-y-4">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -101,24 +101,6 @@ export default function Index() {
             <CostStrip agentLogs={agentLogs} />
             <HeroDraftCard drafts={queuedDrafts} onUpdate={fetchData} />
             <CompactNewsList />
-            <Sheet open={replyOpen} onOpenChange={setReplyOpen}>
-              <SheetTrigger asChild>
-                <button className="w-full card-surface px-3 py-3 flex items-center justify-between active:bg-secondary/40 transition">
-                  <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    <MessageSquare className="w-4 h-4 text-primary" /> Reply Assistant
-                  </span>
-                  <span className="text-[11px] text-muted-foreground">Open →</span>
-                </button>
-              </SheetTrigger>
-              <SheetContent side="bottom" className="bg-card border-border max-h-[90vh] overflow-y-auto">
-                <SheetHeader>
-                  <SheetTitle className="flex items-center gap-2"><MessageSquare className="w-4 h-4 text-primary" /> Reply Assistant</SheetTitle>
-                </SheetHeader>
-                <div className="pt-4">
-                  <ReplyAssistant />
-                </div>
-              </SheetContent>
-            </Sheet>
             <AgentStatusFooter agentLogs={agentLogs} />
           </>
         ) : activeTab === "drafts" ? (
@@ -129,6 +111,8 @@ export default function Index() {
           <AnalyticsView posts={posts} metrics={metrics} agentLogs={agentLogs} />
         )}
       </main>
+
+      {activeTab === "today" && <ReplyPill />}
 
       {activeTab !== "settings" && (
         <BottomTabBar
