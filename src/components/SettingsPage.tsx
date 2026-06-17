@@ -80,6 +80,8 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       lead_magnet_url: ceo.lead_magnet_url,
       auto_first_comment: ceo.auto_first_comment,
       hard_cta_ratio: ceo.hard_cta_ratio,
+      competitor_urls: ceo.competitor_urls,
+      trend_keywords: ceo.trend_keywords,
       updated_at: new Date().toISOString(),
     }).eq("id", ceo.id);
     setSaving(false);
@@ -214,7 +216,43 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             />
           </div>
 
-          <Button onClick={saveCeo} disabled={saving} className="w-full">
+          <div className="space-y-2 pt-2 border-t border-border">
+            <label className="block text-sm font-medium text-foreground">
+              Trend keywords (one per line — these get searched daily)
+            </label>
+            <Textarea
+              rows={3}
+              value={(ceo.trend_keywords ?? []).join("\n")}
+              onChange={(e) =>
+                setCeo({
+                  ...ceo,
+                  trend_keywords: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
+                })
+              }
+              className="bg-secondary border-border text-xs"
+              placeholder={"AI agents enterprise\nexecutive AI training"}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-foreground">
+              Competitor URLs (one per line, max 3 are scraped)
+            </label>
+            <Textarea
+              rows={3}
+              value={(ceo.competitor_urls ?? []).join("\n")}
+              onChange={(e) =>
+                setCeo({
+                  ...ceo,
+                  competitor_urls: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
+                })
+              }
+              className="bg-secondary border-border text-xs"
+              placeholder={"https://www.example.com/blog\nhttps://substack.com/@operator"}
+            />
+          </div>
+
+          <Button onClick={saveCeo} disabled={saving} className="w-full min-h-11">
             <Save className="w-4 h-4 mr-1" /> Save CEO context
           </Button>
         </div>

@@ -90,19 +90,19 @@ export default function Index() {
       />
 
       {activeTab === "settings" ? (
-        <div className="max-w-screen-2xl mx-auto px-6 py-6">
+        <div className="max-w-screen-2xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
           <SettingsPage onBack={() => setActiveTab("drafts")} />
         </div>
       ) : (
         <>
-          {/* Tab bar */}
-          <div className="max-w-screen-2xl mx-auto px-6 pt-6">
-            <div className="flex gap-1 p-1 bg-secondary/50 rounded-lg w-fit">
+          {/* Tab bar — horizontal scroll on mobile */}
+          <div className="max-w-screen-2xl mx-auto px-3 sm:px-6 pt-4 sm:pt-6">
+            <div className="flex gap-1 p-1 bg-secondary/50 rounded-lg w-full sm:w-fit overflow-x-auto">
               {tabs.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`flex-1 sm:flex-none min-h-11 px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
                     activeTab === tab.key
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground"
@@ -115,17 +115,17 @@ export default function Index() {
           </div>
 
           {/* Content */}
-          <div className="max-w-screen-2xl mx-auto px-6 py-6">
+          <div className="max-w-screen-2xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
             {loading ? (
               <div className="flex items-center justify-center py-20">
                 <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               </div>
             ) : activeTab === "drafts" ? (
-              <div className="flex flex-col lg:flex-row gap-6">
-                <div className="flex-1 lg:w-[70%]">
+              <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
+                <div className="flex-1 lg:w-[70%] order-2 lg:order-1">
                   <DraftQueue posts={posts} onUpdate={fetchData} />
                 </div>
-                <div className="lg:w-[30%]">
+                <div className="lg:w-[30%] order-1 lg:order-2">
                   <SidebarPanel posts={posts} metrics={metrics} agentLogs={agentLogs} />
                 </div>
               </div>

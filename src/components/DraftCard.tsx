@@ -106,7 +106,8 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
   const sources = post.source_material as any[] | null;
 
   return (
-    <div className="card-surface p-6 space-y-4">
+    <div className="card-surface p-4 sm:p-6 space-y-4">
+
       {/* Pillar tag */}
       <div className="flex items-center justify-between">
         <span className={`text-xs font-medium px-3 py-1 rounded-full border ${pillarClasses}`}>
@@ -296,14 +297,14 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
 
       {/* Action buttons — Draft */}
       {post.status === "draft" && !editing && !rejecting && (
-        <div className="flex gap-2 pt-2 border-t border-border">
-          <Button size="sm" className="bg-success hover:bg-success/90 text-success-foreground" onClick={handleApprove} disabled={loading}>
+        <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border">
+          <Button size="sm" className="min-h-11 bg-success hover:bg-success/90 text-success-foreground flex-1" onClick={handleApprove} disabled={loading}>
             <Check className="w-4 h-4 mr-1" /> Approve
           </Button>
-          <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => setEditing(true)}>
+          <Button size="sm" className="min-h-11 bg-primary hover:bg-primary/90 flex-1" onClick={() => setEditing(true)}>
             <Pencil className="w-4 h-4 mr-1" /> Edit
           </Button>
-          <Button size="sm" variant="destructive" onClick={() => setRejecting(true)}>
+          <Button size="sm" variant="destructive" className="min-h-11 flex-1" onClick={() => setRejecting(true)}>
             <X className="w-4 h-4 mr-1" /> Reject
           </Button>
         </div>
@@ -311,19 +312,19 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
 
       {/* Action buttons — Approved */}
       {post.status === "approved" && (
-        <div className="flex gap-2 pt-2 border-t border-border">
-          <Button size="sm" variant="outline" onClick={handleCopy}>
+        <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border">
+          <Button size="sm" variant="outline" className="min-h-11 flex-1" onClick={handleCopy}>
             <Copy className="w-4 h-4 mr-1" /> Copy
           </Button>
           <Button
             size="sm"
-            className="bg-[hsl(201,100%,35%)] hover:bg-[hsl(201,100%,30%)] text-white"
+            className="min-h-11 bg-[hsl(201,100%,35%)] hover:bg-[hsl(201,100%,30%)] text-white flex-1"
             onClick={handlePublishLinkedIn}
             disabled={loading}
           >
             <Linkedin className="w-4 h-4 mr-1" /> Publish to LinkedIn
           </Button>
-          <Button size="sm" className="bg-success hover:bg-success/90 text-success-foreground" onClick={handleMarkPublished} disabled={loading}>
+          <Button size="sm" className="min-h-11 bg-success hover:bg-success/90 text-success-foreground flex-1" onClick={handleMarkPublished} disabled={loading}>
             <Send className="w-4 h-4 mr-1" /> Mark Published
           </Button>
         </div>

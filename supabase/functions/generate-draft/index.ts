@@ -104,8 +104,8 @@ Return ONLY valid JSON, no markdown:
   "fixes": ["...", "..."]
 }`;
 
-const CLAUDE_GENERATION_MODEL = "claude-sonnet-4-20250514";
-const CLAUDE_VERIFIER_MODEL = "claude-sonnet-4-20250514";
+const CLAUDE_GENERATION_MODEL = "claude-sonnet-4-5";
+const CLAUDE_VERIFIER_MODEL = "claude-sonnet-4-5";
 
 // Claude pricing
 const INPUT_COST_PER_TOKEN = 3 / 1_000_000;
@@ -404,6 +404,22 @@ serve(async (req) => {
     const leadMagnetUrl = ceoCtx?.lead_magnet_url || "https://build.londonra.com";
     const forbiddenList = parseForbiddenList(ceoCtx?.forbidden_phrases || DEFAULT_FORBIDDEN.join(";"));
 
+    // Fresh trends (last 5 days), prefer today's pillar
+    const { data: trendRows } = await supabase
+      .from("trend_radar")
+      .select("title, summary, angle, counter_take, source_url, heat_score, pillar")
+      .gte("expires_at", new Date().toISOString())
+      .order("heat_score", { ascending: false })
+      .limit(8);
+    const relevantTrends = (trendRows ?? [])
+      .sort((a: any, b: any) => {
+        const aMatch = a.pillar === pillar ? 1 : 0;
+        const bMatch = b.pillar === pillar ? 1 : 0;
+        if (aMatch !== bMatch) return bMatch - aMatch;
+        return (b.heat_score ?? 0) - (a.heat_score ?? 0);
+      })
+      .slice(0, 3);
+
     // Recent rejections
     const { data: rejectedPosts } = await supabase
       .from("posts").select("content, rejection_reason")
@@ -487,12 +503,16 @@ ${ceoCtx.forbidden_phrases}
 The URL ${leadMagnetUrl} must appear in the post.`
       : `\nDO NOT include any URLs or calls-to-action in the post body. The lead-magnet link will be posted as the first comment automatically.`;
 
+    const trendsBlock = relevantTrends.length > 0
+      ? `\nFRESH TREND RADAR (last 5 days — optional source material, use if it fits the pillar naturally; never fabricate):\n${relevantTrends.map((t: any, i: number) => `${i + 1}. ${t.title} (heat ${t.heat_score})\n   ${t.summary}\n   Angle: ${t.angle ?? "—"}\n   Counter-take: ${t.counter_take ?? "—"}${t.source_url ? `\n   URL: ${t.source_url}` : ""}`).join("\n")}\n`
+      : "";
+
     // Base context shared with hook + body
     const contextBlock = `Today is ${todayStr}. The content pillar for today is: ${pillarLabel}.
 ${ceoBlock}
 NEWS ITEMS (source material, every named entity/number/study must come from here):
 ${newsSection}
-${aiLandscapeBlock}
+${aiLandscapeBlock}${trendsBlock}
 VOICE SAMPLES (match this tone):
 ${voiceSection}
 ${winnersBlock}

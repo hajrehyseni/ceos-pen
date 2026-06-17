@@ -45,33 +45,39 @@ export type Database = {
         Row: {
           auto_first_comment: boolean
           bio: string
+          competitor_urls: string[]
           forbidden_phrases: string
           hard_cta_ratio: number
           id: string
           lead_magnet_url: string
           recurring_stories: string
+          trend_keywords: string[]
           updated_at: string
           worldview: string
         }
         Insert: {
           auto_first_comment?: boolean
           bio?: string
+          competitor_urls?: string[]
           forbidden_phrases?: string
           hard_cta_ratio?: number
           id?: string
           lead_magnet_url?: string
           recurring_stories?: string
+          trend_keywords?: string[]
           updated_at?: string
           worldview?: string
         }
         Update: {
           auto_first_comment?: boolean
           bio?: string
+          competitor_urls?: string[]
           forbidden_phrases?: string
           hard_cta_ratio?: number
           id?: string
           lead_magnet_url?: string
           recurring_stories?: string
+          trend_keywords?: string[]
           updated_at?: string
           worldview?: string
         }
@@ -346,6 +352,59 @@ export type Database = {
           value?: string | null
         }
         Relationships: []
+      }
+      trend_radar: {
+        Row: {
+          angle: string | null
+          counter_take: string | null
+          created_at: string
+          expires_at: string
+          heat_score: number
+          id: string
+          pillar: string | null
+          source_type: string
+          source_url: string | null
+          summary: string
+          title: string
+          used_in_post_id: string | null
+        }
+        Insert: {
+          angle?: string | null
+          counter_take?: string | null
+          created_at?: string
+          expires_at?: string
+          heat_score?: number
+          id?: string
+          pillar?: string | null
+          source_type?: string
+          source_url?: string | null
+          summary: string
+          title: string
+          used_in_post_id?: string | null
+        }
+        Update: {
+          angle?: string | null
+          counter_take?: string | null
+          created_at?: string
+          expires_at?: string
+          heat_score?: number
+          id?: string
+          pillar?: string | null
+          source_type?: string
+          source_url?: string | null
+          summary?: string
+          title?: string
+          used_in_post_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trend_radar_used_in_post_id_fkey"
+            columns: ["used_in_post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       voice_samples: {
         Row: {

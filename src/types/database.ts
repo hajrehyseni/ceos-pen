@@ -33,6 +33,8 @@ export interface CeoContext {
   lead_magnet_url: string;
   auto_first_comment: boolean;
   hard_cta_ratio: number;
+  competitor_urls: string[];
+  trend_keywords: string[];
   updated_at: string;
 }
 
