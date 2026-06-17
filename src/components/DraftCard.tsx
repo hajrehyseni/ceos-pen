@@ -230,6 +230,8 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
                 <Bar label="Specific" val={Number(sb.specificity ?? 0)} />
                 <Bar label="Emotional" val={Number(sb.emotional_pull ?? 0)} />
                 <Bar label="Shareable" val={Number(sb.shareability ?? 0)} />
+                {typeof sb.humour_fit === "number" && <Bar label="Humour" val={Number(sb.humour_fit)} />}
+                {typeof sb.lead_magnet_fit === "number" && <Bar label="Lead-mag" val={Number(sb.lead_magnet_fit)} />}
                 <div className="flex gap-3 pt-1 text-[11px] text-muted-foreground">
                   <span className={u.actionable_takeaway ? "text-success" : ""}>{u.actionable_takeaway ? "✓" : "·"} actionable</span>
                   <span className={u.contrarian_angle ? "text-success" : ""}>{u.contrarian_angle ? "✓" : "·"} contrarian</span>
