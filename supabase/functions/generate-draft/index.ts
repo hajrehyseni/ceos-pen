@@ -546,10 +546,21 @@ ${winnersBlock}
 PREVIOUSLY REJECTED (avoid these patterns):
 ${rejectSection}`;
 
+    // Recent openers (last 5 drafts) — feed into hook brainstorm for diversity
+    const { data: recentPosts } = await supabase
+      .from("posts").select("content")
+      .order("created_at", { ascending: false }).limit(5);
+    const recentOpeners = (recentPosts ?? [])
+      .map((p: any) => (p.content ?? "").split(/\n/)[0].trim().slice(0, 120))
+      .filter((s: string) => s.length > 0);
+
+    const ctaMode: "hard" | "soft" = selectedCta?.cta_type === "hard" ? "hard" : "soft";
+
     // STAGE 1 — Hook brainstorm
     const hookBrainstorm = await brainstormHooks(
       CLAUDE_API_KEY,
       `${contextBlock}\n\nGenerate 3 distinct hooks for a ${pillarLabel} post.`,
+      recentOpeners,
     );
     const hookOptions = hookBrainstorm.hooks;
     const hookList = hookOptions.length > 0
@@ -600,7 +611,7 @@ Rewrite the post. Remove or rephrase every unsupported claim. Do not invent comp
     }
 
     // STAGE 4 — Virality + usefulness scorer
-    let score = await scoreDraft(postContent, CLAUDE_API_KEY);
+    let score = await scoreDraft(postContent, CLAUDE_API_KEY, ctaMode);
     let scorerInputTokens = score.inputTokens;
     let scorerOutputTokens = score.outputTokens;
     let scorerRetried = false;
@@ -627,7 +638,7 @@ Keep zero-fabrication rules. Output ONLY the post text.`;
         postContent = candidate;
         verifier = reverify;
         verifierRetried = true;
-        const rescore = await scoreDraft(postContent, CLAUDE_API_KEY);
+        const rescore = await scoreDraft(postContent, CLAUDE_API_KEY, ctaMode);
         scorerInputTokens += rescore.inputTokens;
         scorerOutputTokens += rescore.outputTokens;
         if (rescore.overall >= score.overall) score = rescore;
