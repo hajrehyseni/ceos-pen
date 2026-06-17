@@ -47,45 +47,51 @@ export function CompactNewsList() {
   const top = trends.slice(0, 3);
 
   return (
-    <div className="space-y-2">
+    <section className="space-y-2">
       <div className="flex items-center justify-between px-1">
-        <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground flex items-center gap-1.5">
-          <Flame className="w-3.5 h-3.5 text-pillar-defence" />
+        <h2 className="label-eyebrow flex items-center gap-1.5">
+          <Flame className="w-3 h-3 text-pillar-defence" />
           AI News
         </h2>
         <button
           onClick={handleScan}
           disabled={scanning}
-          className="text-muted-foreground hover:text-foreground transition min-h-9 min-w-9 flex items-center justify-center"
+          className="text-muted-foreground hover:text-foreground transition h-8 w-8 -mr-2 flex items-center justify-center rounded-full active:bg-secondary/40"
           aria-label="Refresh AI News"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${scanning ? "animate-spin" : ""}`} />
         </button>
       </div>
 
-      <div className="card-surface divide-y divide-border overflow-hidden">
+      <div className="card-surface overflow-hidden">
         {top.length === 0 ? (
           <p className="text-xs text-muted-foreground p-4 text-center">
             No fresh news yet. Tap refresh to scan.
           </p>
         ) : (
-          top.map((t) => (
-            <a
-              key={t.id}
-              href={t.source_url || "#"}
-              target={t.source_url ? "_blank" : undefined}
-              rel="noopener noreferrer"
-              className="block px-3 py-3 active:bg-secondary/40 transition"
-            >
-              <p className="text-sm text-foreground font-medium leading-snug line-clamp-2">{t.title}</p>
-              <p className="text-xs text-muted-foreground leading-snug line-clamp-1 mt-0.5">{t.summary}</p>
-            </a>
-          ))
+          <ul className="divide-y divide-[hsl(var(--hairline)/0.06)]">
+            {top.map((t) => (
+              <li key={t.id}>
+                <a
+                  href={t.source_url || "#"}
+                  target={t.source_url ? "_blank" : undefined}
+                  rel="noopener noreferrer"
+                  className="flex items-start gap-2 px-4 py-3 active:bg-secondary/40 transition"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] text-foreground font-medium leading-snug line-clamp-2">{t.title}</p>
+                    <p className="text-[12px] text-muted-foreground leading-snug line-clamp-1 mt-0.5">{t.summary}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground/60 mt-0.5 shrink-0" />
+                </a>
+              </li>
+            ))}
+          </ul>
         )}
         {trends.length > 3 && (
           <Sheet open={allOpen} onOpenChange={setAllOpen}>
             <SheetTrigger asChild>
-              <button className="w-full flex items-center justify-center gap-1 px-3 py-2.5 text-xs font-medium text-primary active:bg-secondary/40 transition">
+              <button className="w-full flex items-center justify-center gap-1 px-3 py-3 text-xs font-medium text-primary active:bg-secondary/40 transition hairline-t">
                 See all {trends.length} <ChevronRight className="w-3 h-3" />
               </button>
             </SheetTrigger>
@@ -111,6 +117,6 @@ export function CompactNewsList() {
           </Sheet>
         )}
       </div>
-    </div>
+    </section>
   );
 }

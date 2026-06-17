@@ -10,10 +10,16 @@ export function ReplyPill() {
       <SheetTrigger asChild>
         <button
           aria-label="Open Reply Assistant"
-          className="fixed right-4 z-30 h-12 px-4 rounded-full shadow-lg bg-primary text-primary-foreground flex items-center gap-2 text-sm font-semibold active:scale-95 transition"
-          style={{ bottom: "calc(env(safe-area-inset-bottom) + 76px)" }}
+          className="fixed right-4 z-30 h-11 px-3.5 rounded-full flex items-center gap-2 text-[13px] font-semibold tap-press"
+          style={{
+            bottom: "calc(env(safe-area-inset-bottom) + 76px)",
+            background: "hsl(var(--surface-2))",
+            border: "1px solid hsl(var(--hairline) / 0.1)",
+            color: "hsl(var(--foreground))",
+            boxShadow: "0 8px 24px -8px hsl(240 60% 2% / 0.6)",
+          }}
         >
-          <MessageSquare className="w-4 h-4" />
+          <MessageSquare className="w-4 h-4 text-primary" />
           Reply
         </button>
       </SheetTrigger>

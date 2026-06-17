@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Settings, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { CeoPenGlyph } from "@/components/brand/CeoPenGlyph";
 
 interface HeaderBarProps {
   weeklyCount: number;
@@ -28,18 +29,24 @@ export function HeaderBar({ onSettingsClick, onDataRefresh }: HeaderBarProps) {
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-xl">
-      <div className="max-w-screen-sm mx-auto px-4 h-[52px] flex items-center justify-between">
-        <h1 className="text-base font-bold text-foreground tracking-tight whitespace-nowrap">
-          CEO <span className="text-primary">Pen</span>
-        </h1>
+    <header
+      className="sticky top-0 z-50 hairline-b bg-background/75 backdrop-blur-xl"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
+      <div className="max-w-screen-sm mx-auto px-4 h-[56px] flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <CeoPenGlyph size={30} />
+          <span className="font-signature text-[22px] leading-none text-foreground translate-y-[2px]">
+            CEO <span className="text-primary">Pen</span>
+          </span>
+        </div>
 
         <div className="flex items-center gap-1">
           <Button
             size="sm"
             onClick={handleGenerateDraft}
             disabled={generatingDraft}
-            className="h-9 px-3 text-xs"
+            className="h-9 px-3 text-xs rounded-full tap-press"
           >
             <Sparkles className="w-3.5 h-3.5 mr-1" />
             {generatingDraft ? "…" : "New"}
@@ -49,7 +56,7 @@ export function HeaderBar({ onSettingsClick, onDataRefresh }: HeaderBarProps) {
             variant="ghost"
             onClick={onSettingsClick}
             aria-label="Open settings"
-            className="h-9 w-9 p-0"
+            className="h-9 w-9 p-0 rounded-full"
           >
             <Settings className="w-4 h-4" />
           </Button>
