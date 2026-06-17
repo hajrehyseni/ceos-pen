@@ -53,7 +53,7 @@ const PILLAR_SEARCH_QUERIES: Record<string, string[]> = {
   ],
 };
 
-const CLAUDE_NEWS_MODEL = "claude-sonnet-4-20250514";
+const CLAUDE_NEWS_MODEL = "claude-sonnet-4-5";
 
 // Claude Sonnet pricing
 const INPUT_COST_PER_TOKEN = 3 / 1_000_000;

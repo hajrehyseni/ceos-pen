@@ -104,8 +104,8 @@ Return ONLY valid JSON, no markdown:
   "fixes": ["...", "..."]
 }`;
 
-const CLAUDE_GENERATION_MODEL = "claude-sonnet-4-20250514";
-const CLAUDE_VERIFIER_MODEL = "claude-sonnet-4-20250514";
+const CLAUDE_GENERATION_MODEL = "claude-sonnet-4-5";
+const CLAUDE_VERIFIER_MODEL = "claude-sonnet-4-5";
 
 // Claude pricing
 const INPUT_COST_PER_TOKEN = 3 / 1_000_000;
