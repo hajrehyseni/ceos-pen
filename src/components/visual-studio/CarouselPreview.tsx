@@ -6,6 +6,7 @@ import * as Icons from "lucide-react";
 import { useVisualAsset } from "./useVisualAsset";
 import { nodeToPngBlob, downloadBlob, copyText } from "./exportNode";
 import { useToast } from "@/hooks/use-toast";
+import { QualityBadge } from "./QualityBadge";
 
 interface Slide {
   n: number;

@@ -4,6 +4,7 @@ import { Sparkles, Copy, Loader2, RefreshCw, ImageIcon, AlertTriangle } from "lu
 import { useVisualAsset } from "./useVisualAsset";
 import { copyText } from "./exportNode";
 import { useToast } from "@/hooks/use-toast";
+import { QualityBadge } from "./QualityBadge";
 
 export function ImagePostPreview({ postId }: { postId: string }) {
   const { toast } = useToast();

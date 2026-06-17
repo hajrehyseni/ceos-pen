@@ -3,6 +3,7 @@ import { Sparkles, Copy, Loader2, RefreshCw, BarChart2 } from "lucide-react";
 import { useVisualAsset } from "./useVisualAsset";
 import { copyText } from "./exportNode";
 import { useToast } from "@/hooks/use-toast";
+import { QualityBadge } from "./QualityBadge";
 
 export function PollPreview({ postId }: { postId: string }) {
   const { toast } = useToast();
