@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { sanitizeForLinkedIn } from "../_shared/linkedin-sanitize.ts";
+import { postFirstComment } from "../_shared/linkedin-first-comment.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -77,6 +79,12 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Load CEO context once — used for auto-first-comment defaults
+    const { data: ceoCtx } = await supabase
+      .from("ceo_context").select("auto_first_comment, lead_magnet_url").limit(1).maybeSingle();
+    const autoFirstComment = ceoCtx?.auto_first_comment !== false;
+    const leadMagnetUrl = ceoCtx?.lead_magnet_url || "https://build.londonra.com";
 
     const results = [];
 
@@ -161,14 +169,36 @@ serve(async (req) => {
 
         await supabase.from("posts").update({ status: "published", published_at: publishedAt }).eq("id", post.id);
 
+        // Auto first-comment with lead-magnet CTA
+        let firstCommentResult: Record<string, unknown> | null = null;
+        if (autoFirstComment && linkedinId && post.first_comment_text) {
+          const commentText = post.first_comment_text.includes(leadMagnetUrl)
+            ? post.first_comment_text
+            : `${post.first_comment_text}\n${leadMagnetUrl}`;
+          try {
+            const c = await postFirstComment({
+              accessToken, personUrn, shareUrn: linkedinId, text: commentText,
+            });
+            firstCommentResult = { status: c.status, ok: c.ok, comment_urn: c.commentUrn };
+            if (c.ok) {
+              await supabase.from("posts").update({ first_comment_posted_at: publishedAt }).eq("id", post.id);
+            } else {
+              console.error("Auto first-comment failed", c.status, c.body);
+            }
+          } catch (e) {
+            firstCommentResult = { status: 0, ok: false, error: String(e) };
+            console.error("Auto first-comment threw:", e);
+          }
+        }
+
         await supabase.from("agent_log").insert({
           action: "auto_published",
           api_cost_usd: 0,
           tokens_used: 0,
-          details: { post_id: post.id, linkedin_id: linkedinId, published_at: publishedAt },
+          details: { post_id: post.id, linkedin_id: linkedinId, published_at: publishedAt, first_comment: firstCommentResult },
         });
 
-        results.push({ post_id: post.id, status: "published", linkedin_id: linkedinId });
+        results.push({ post_id: post.id, status: "published", linkedin_id: linkedinId, first_comment: firstCommentResult });
       } catch (err) {
         console.error(`Error publishing post ${post.id}:`, err);
         results.push({ post_id: post.id, status: "failed", error: String(err) });

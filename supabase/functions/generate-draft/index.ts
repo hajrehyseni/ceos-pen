@@ -181,6 +181,95 @@ function stripJsonFence(raw: string): string {
   return raw.replace(/```json?\n?/g, "").replace(/```\n?/g, "").trim();
 }
 
+// ===== CTA picker =====
+type CtaRow = {
+  id: string;
+  copy: string;
+  cta_type: string;
+  weight: number;
+  enabled: boolean;
+};
+
+function pickCta(ctas: CtaRow[], hardRatio: number): CtaRow | null {
+  const enabled = ctas.filter((c) => c.enabled);
+  if (enabled.length === 0) return null;
+  const wantHard = Math.random() < hardRatio;
+  const pool = enabled.filter((c) => c.cta_type === (wantHard ? "hard" : "soft"));
+  const finalPool = pool.length > 0 ? pool : enabled;
+  const totalWeight = finalPool.reduce((s, c) => s + Math.max(c.weight, 0.01), 0);
+  let r = Math.random() * totalWeight;
+  for (const c of finalPool) {
+    r -= Math.max(c.weight, 0.01);
+    if (r <= 0) return c;
+  }
+  return finalPool[finalPool.length - 1];
+}
+
+// ===== Voice fingerprint =====
+const DEFAULT_FORBIDDEN = [
+  "in today's fast-paced", "leverage", "unlock", "game-changer", "game changer",
+  "revolutionise", "revolutionize", "harness the power", "deep dive",
+  "at the end of the day", "truly", "simply put", "let me tell you",
+  "ladies and gentlemen", "in today's world", "in today's digital", "moreover,",
+  "furthermore,", "additionally,", "in conclusion", "it's important to note",
+  "in this article", "in this post",
+];
+
+function parseForbiddenList(raw: string): string[] {
+  return (raw || "")
+    .split(/[;,\n]+/)
+    .map((p) => p.trim().toLowerCase())
+    .filter((p) => p.length > 1);
+}
+
+function findForbiddenHits(text: string, list: string[]): string[] {
+  const lower = text.toLowerCase();
+  const hits: string[] = [];
+  for (const p of list) {
+    if (p.length < 2) continue;
+    if (lower.includes(p)) hits.push(p);
+  }
+  return Array.from(new Set(hits));
+}
+
+/** 0-10 score of how Hajre-ish the draft sounds. Deterministic. */
+function computeVoiceScore(text: string, forbiddenHits: string[]): {
+  score: number;
+  diagnostics: Record<string, unknown>;
+} {
+  let score = 10;
+  score -= Math.min(forbiddenHits.length * 2, 6);
+
+  const sentences = text.split(/[.!?]+\s/).map((s) => s.trim()).filter(Boolean);
+  const words = text.split(/\s+/).filter(Boolean);
+  const avgSentenceLen = sentences.length > 0 ? words.length / sentences.length : 0;
+  if (avgSentenceLen > 25) score -= 1;
+  if (avgSentenceLen > 32) score -= 1;
+
+  const contractionRegex = /\b(I'm|don't|I've|you're|can't|won't|didn't|it's|that's|what's|isn't|aren't|we're|they're|wouldn't|couldn't|shouldn't|here's|there's)\b/gi;
+  const contractionCount = (text.match(contractionRegex) || []).length;
+  if (contractionCount === 0) score -= 2;
+
+  const firstPersonCount = (text.match(/\b(I|me|my|mine|I'm|I've)\b/g) || []).length;
+  if (firstPersonCount === 0) score -= 1;
+
+  if (text.includes("—")) score -= 1;
+  if (/[#]\w/.test(text)) score -= 1; // hashtags
+
+  return {
+    score: Math.max(0, Math.min(10, score)),
+    diagnostics: {
+      avg_sentence_len: Math.round(avgSentenceLen * 10) / 10,
+      contraction_count: contractionCount,
+      first_person_count: firstPersonCount,
+      forbidden_hit_count: forbiddenHits.length,
+      forbidden_hits: forbiddenHits,
+      has_em_dash: text.includes("—"),
+      has_hashtag: /[#]\w/.test(text),
+    },
+  };
+}
+
 async function brainstormHooks(
   apiKey: string,
   userMessage: string,
@@ -305,6 +394,16 @@ serve(async (req) => {
       .from("voice_samples").select("*")
       .order("performance_rating", { ascending: false }).limit(3);
 
+    // CEO context (single row) + lead-magnet CTAs
+    const { data: ceoCtx } = await supabase
+      .from("ceo_context").select("*").limit(1).maybeSingle();
+    const { data: ctaRows } = await supabase
+      .from("cta_library").select("*").eq("enabled", true);
+    const hardRatio = Number(ceoCtx?.hard_cta_ratio ?? 0.4);
+    const selectedCta = ctaRows ? pickCta(ctaRows as CtaRow[], hardRatio) : null;
+    const leadMagnetUrl = ceoCtx?.lead_magnet_url || "https://build.londonra.com";
+    const forbiddenList = parseForbiddenList(ceoCtx?.forbidden_phrases || DEFAULT_FORBIDDEN.join(";"));
+
     // Recent rejections
     const { data: rejectedPosts } = await supabase
       .from("posts").select("content, rejection_reason")
@@ -365,9 +464,32 @@ serve(async (req) => {
       ? `\nHIGH-PERFORMING PAST POSTS (match this energy — same voice, same level of specificity, same shape of hook):\n${winners.map((w, i) => `${i + 1}. (engagement ${w.score})\n"""${w.content}"""`).join("\n\n")}\n`
       : "";
 
+    // CEO context block — keeps the agent grounded in Hajre's voice + worldview
+    const ceoBlock = ceoCtx
+      ? `\nWHO YOU ARE WRITING AS:
+${ceoCtx.bio}
+
+WORLDVIEW (use this as the lens — do not quote it verbatim):
+${ceoCtx.worldview}
+
+RECURRING STORIES YOU CAN DRAW FROM (use specifics, change details to keep it fresh, never fabricate):
+${ceoCtx.recurring_stories}
+
+FORBIDDEN PHRASES — never use these (instant rejection):
+${ceoCtx.forbidden_phrases}
+`
+      : "";
+
+    // CTA instruction (hard CTA goes in the body; soft CTA is reserved for the auto first-comment)
+    const ctaInstruction = selectedCta && selectedCta.cta_type === "hard"
+      ? `\nLEAD-MAGNET CTA (weave this in NATURALLY at the end — one short line, in Hajre's voice, do not bold or quote it):
+"${selectedCta.copy}"
+The URL ${leadMagnetUrl} must appear in the post.`
+      : `\nDO NOT include any URLs or calls-to-action in the post body. The lead-magnet link will be posted as the first comment automatically.`;
+
     // Base context shared with hook + body
     const contextBlock = `Today is ${todayStr}. The content pillar for today is: ${pillarLabel}.
-
+${ceoBlock}
 NEWS ITEMS (source material, every named entity/number/study must come from here):
 ${newsSection}
 ${aiLandscapeBlock}
@@ -392,6 +514,7 @@ ${rejectSection}`;
 
 HOOK OPTIONS (pick the single strongest one, then build the post around it — you may sharpen the wording but keep its shape):
 ${hookList}
+${ctaInstruction}
 
 Write the full LinkedIn post for the ${pillarLabel} pillar. 150-350 words. Output ONLY the post text.`;
 
@@ -468,7 +591,62 @@ Keep zero-fabrication rules. Output ONLY the post text.`;
     }
 
     postContent = postContent.trim();
-    const engagement = verifier.verdict === "pass" ? engagementFromScore(score) : "low";
+
+    // STAGE 5 — Voice fingerprint check (forbidden phrases + Hajre-ness score)
+    let forbiddenHits = findForbiddenHits(postContent, forbiddenList);
+    let voice = computeVoiceScore(postContent, forbiddenHits);
+    let voiceRewriteAttempted = false;
+
+    if (forbiddenHits.length > 0 || voice.score < 7) {
+      voiceRewriteAttempted = true;
+      const phraseList = forbiddenHits.length > 0
+        ? forbiddenHits.map((p) => `- "${p}"`).join("\n")
+        : "(no exact phrase hits, but the draft sounds AI-generated — make it more conversational and specifically British in tone)";
+      const voiceRewriteMessage = `${bodyUserMessage}
+
+⚠️ THE PREVIOUS DRAFT DID NOT SOUND LIKE HAJRE. Issues:
+- Forbidden phrases / generic AI-isms found:
+${phraseList}
+- Voice score: ${voice.score}/10. Diagnostics: ${JSON.stringify(voice.diagnostics)}
+
+Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, don't, it's). Use shorter, varied sentences. Keep first person. British English. No em dashes. Make it sound like Hajre wrote it on the tube, not like ChatGPT. Output ONLY the post text.`;
+      const voiceRewrite = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, SYSTEM_PROMPT, voiceRewriteMessage);
+      const candidate = voiceRewrite.text.trim();
+      genInputTokens += voiceRewrite.inputTokens;
+      genOutputTokens += voiceRewrite.outputTokens;
+
+      // Re-verify the rewrite — never trade fabrication for voice.
+      const reverify = await verifyDraft(candidate, verifierSources, CLAUDE_API_KEY);
+      verifierInputTokens += reverify.inputTokens;
+      verifierOutputTokens += reverify.outputTokens;
+      if (reverify.verdict === "pass") {
+        postContent = candidate;
+        verifier = reverify;
+        forbiddenHits = findForbiddenHits(postContent, forbiddenList);
+        voice = computeVoiceScore(postContent, forbiddenHits);
+      } else {
+        console.warn("Voice rewrite failed re-verification — keeping original draft.");
+      }
+    }
+
+    // Final engagement gate: must pass verifier AND voice score must be at least 6
+    const engagement = (verifier.verdict === "pass" && voice.score >= 6)
+      ? engagementFromScore(score)
+      : "low";
+
+    // Build the per-claim evidence list (sources that backed each verified claim)
+    const verificationEvidence = verifier.claims.map((c) => {
+      const src = c.source_index && c.source_index > 0
+        ? verifierSources[c.source_index - 1]
+        : null;
+      return {
+        claim: c.claim,
+        type: c.type,
+        supported: c.supported,
+        reason: c.reason,
+        source: src ? { title: src.title, source: src.source, summary: src.summary } : null,
+      };
+    });
 
     const apiCost =
       genInputTokens * INPUT_COST_PER_TOKEN +
@@ -517,12 +695,24 @@ Keep zero-fabrication rules. Output ONLY the post text.`;
         source_material: sourceMaterial,
         verification_status: verifier.verdict === "pass" ? "passed" : "failed",
         verification_notes: verificationNotes,
+        verification_evidence: verificationEvidence,
         virality_score: score.overall,
+        voice_score: voice.score,
         score_breakdown: scoreBreakdown,
+        cta_id: selectedCta?.id ?? null,
+        first_comment_text: selectedCta && selectedCta.cta_type === "soft" ? selectedCta.copy : null,
       })
       .select("id").single();
 
     if (postError) throw new Error(`Insert post failed: ${postError.message}`);
+
+    // Bump CTA usage counter
+    if (selectedCta) {
+      await supabase
+        .from("cta_library")
+        .update({ times_used: (ctaRows?.find((c: any) => c.id === selectedCta.id)?.times_used ?? 0) + 1 })
+        .eq("id", selectedCta.id);
+    }
 
     await supabase.from("agent_log").insert({
       action: "draft_generated",
@@ -542,8 +732,13 @@ Keep zero-fabrication rules. Output ONLY the post text.`;
         verifier_retried: verifierRetried,
         unsupported_claim_count: verifier.claims.filter((c) => !c.supported).length,
         virality_score: score.overall,
+        voice_score: voice.score,
+        voice_diagnostics: voice.diagnostics,
+        voice_rewrite_attempted: voiceRewriteAttempted,
         engagement_estimate: engagement,
         scorer_retried: scorerRetried,
+        cta_id: selectedCta?.id ?? null,
+        cta_type: selectedCta?.cta_type ?? null,
       },
     });
 
