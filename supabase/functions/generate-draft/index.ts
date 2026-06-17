@@ -145,6 +145,8 @@ type ScoreResult = {
   specificity: number;
   emotional_pull: number;
   shareability: number;
+  humour_fit: number;
+  lead_magnet_fit: number;
   usefulness: {
     actionable_takeaway: boolean;
     contrarian_angle: boolean;
