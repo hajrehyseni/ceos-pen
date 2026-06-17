@@ -12,14 +12,25 @@ import { SettingsPage } from "@/components/SettingsPage";
 type Tab = "drafts" | "published" | "analytics" | "settings";
 
 export default function Index() {
-  const [authenticated, setAuthenticated] = useState(
-    () => sessionStorage.getItem("gw-auth") === "true"
-  );
+  const [authenticated, setAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("drafts");
   const [posts, setPosts] = useState<Post[]>([]);
   const [metrics, setMetrics] = useState<PostMetrics[]>([]);
   const [agentLogs, setAgentLogs] = useState<AgentLog[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthenticated(!!session);
+      setAuthChecked(true);
+    });
+    supabase.auth.getSession().then(({ data }) => {
+      setAuthenticated(!!data.session);
+      setAuthChecked(true);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
