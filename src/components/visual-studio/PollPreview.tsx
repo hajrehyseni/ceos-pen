@@ -3,6 +3,7 @@ import { Sparkles, Copy, Loader2, RefreshCw, BarChart2 } from "lucide-react";
 import { useVisualAsset } from "./useVisualAsset";
 import { copyText } from "./exportNode";
 import { useToast } from "@/hooks/use-toast";
+import { QualityBadge } from "./QualityBadge";
 
 export function PollPreview({ postId }: { postId: string }) {
   const { toast } = useToast();
@@ -57,6 +58,8 @@ export function PollPreview({ postId }: { postId: string }) {
       <Block label="Follow-up comment (24h later)" value={p?.follow_up_comment} onCopy={(v) => cp("Follow-up", v)} />
       <Block label="Reply strategy" value={p?.reply_strategy} onCopy={(v) => cp("Strategy", v)} />
       {p?.cta && <Block label="Lead-magnet CTA" value={p.cta} onCopy={(v) => cp("CTA", v)} />}
+
+      <QualityBadge quality={p?.quality} />
 
       <div className="flex flex-wrap gap-2 pt-1">
         <Button size="sm" variant="outline" onClick={() => cp("Poll caption", p?.caption)}>

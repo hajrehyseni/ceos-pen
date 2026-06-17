@@ -6,6 +6,7 @@ import * as Icons from "lucide-react";
 import { useVisualAsset } from "./useVisualAsset";
 import { nodeToPngBlob, downloadBlob, copyText } from "./exportNode";
 import { useToast } from "@/hooks/use-toast";
+import { QualityBadge } from "./QualityBadge";
 
 interface Slide {
   n: number;
@@ -177,6 +178,8 @@ export function CarouselPreview({ postId }: { postId: string }) {
           {payload.caption}
         </div>
       )}
+
+      <QualityBadge quality={payload?.quality} />
 
       <div className="flex flex-wrap gap-2 pt-1">
         <Button size="sm" variant="outline" onClick={exportPdf} disabled={exporting !== null}>

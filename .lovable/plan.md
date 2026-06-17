@@ -1,91 +1,86 @@
 
-# Visual Studio — Wave 4 (real assets, not just buttons)
+# Visual Studio — tightening pass + smoke test
 
-Goal: every draft card gets an expandable **Visual Studio** with six tabs that produce **visible, previewable, exportable** assets — mobile-first, swipeable, downloadable as PNG/PDF, copyable as text. No fabricated facts, no fake screenshots, no auto-publish.
+Most of Wave 4 already shipped last turn (six generators, six previews, exports). This pass tightens it to match your delivery order, swaps the tab strip for a single CTA, adds a visual quality scorer, and runs the smoke test you asked for.
 
-## 1. Data model (one migration)
+## 1. Single "Create Visual" entry on draft cards
 
-New tables, all RLS-enabled with the standard grants:
+Replace the always-visible Visual Studio collapsible header with one primary button on each draft card:
 
-- `visual_assets` — one row per generated asset
-  - `id`, `post_id` (fk posts, nullable for reply assistant), `kind` (`carousel|infographic|image_post|chart|poll|reply`), `payload jsonb`, `status` (`generating|ready|failed`), `error text`, `created_at`, `updated_at`
-- `reply_drafts` — `id`, `source_text`, `variants jsonb` (short/thoughtful/witty/disagree/lead/dm), `created_at`
+```
+[ Create Visual ]
+```
 
-`payload` shape per kind:
-- carousel: `{ slides: [{n, headline, body, visual_direction, icon_hint}], cta_slide, caption, sources[] }`
-- infographic: `{ title, blocks: [{icon, label, value, note}], caption, sources[] }`
-- image_post: `{ concept, overlay_text, style, image_prompt, caption, first_comment, risk_notes }`
-- chart: `{ type: bar|line|comparison|ranking, title, data:[{label,value,series?}], unit, sources[] }` — or `{ insufficient_data: true }`
-- poll: `{ question, options[4], caption, follow_up_comment, reply_strategy, cta }`
+Click → opens a `Dialog` (mobile-friendly sheet on small screens) containing the same six tabs **in your priority order**: Carousel → Poll → Reply → Image → Infographic → Chart. Default tab = Carousel. Closing the dialog leaves the card clean — no NASA control panel.
 
-## 2. Edge functions (one per kind, Claude Sonnet 4.5, all use existing sanitiser + voice rules)
+Files: edit `src/components/DraftCard.tsx`, edit `src/components/visual-studio/VisualStudio.tsx` to render inside a `Dialog`/`Sheet` instead of `Collapsible`, reorder tabs.
 
-- `gen-carousel` — 6–8 slides, last slide = soft CTA to build.londonra.com, British-warm tone, no fake numbers
-- `gen-infographic` — title + 3–5 blocks + sources from `news_items`/`trend_radar` referenced in the post
-- `gen-image-post` — concept, overlay text (≤6 words), style, full image prompt, caption, first comment, risk notes
-- `gen-chart` — requires verified numeric data: pulls from `news_items.facts`/`trend_radar.metrics` or accepts user-pasted data. If neither present → returns `{ insufficient_data: true }` so UI shows the "create conceptual visual instead?" prompt
-- `gen-poll` — question + 4 options + caption + follow-up + reply strategy + optional CTA
-- `reply-assistant` — takes pasted post/comment, returns 6 variants
+## 2. Visual quality scorer (6 dimensions)
 
-Each writes a `visual_assets` row (status `generating` → `ready`) so the UI can poll/subscribe.
+New shared edge function `score-visual` (Claude Sonnet 4.5). Every generator calls it after producing the payload and stores the result in `visual_assets.payload.quality`.
 
-## 3. Frontend — `src/components/visual-studio/`
+Dimensions, each 0–10:
+- `mobile_readability` — text size, contrast, line length on a phone
+- `visual_clarity` — composition, hierarchy, not overcrowded
+- `hook_strength` — first slide / question / overlay grabs attention
+- `cta_fit` — does build.londonra.com land naturally (or is it correctly absent)
+- `source_confidence` — claims tie back to provided sources, zero fabrication
+- `export_readiness` — usable on LinkedIn today without editing
 
-`VisualStudio.tsx` mounts inside `DraftCard.tsx` as a `<Collapsible>`. Tabs use existing shadcn `Tabs`. Each tab has: empty state → Generate button → loading skeleton → preview → export/copy actions.
+Stored as `{ overall, mobile_readability, ..., notes:[] }`. UI: small badge under each preview — green if `overall ≥ 7`, amber + "needs improvement" pill below 7, with one-line notes expandable.
 
-Components:
-- `CarouselPreview.tsx` — uses existing `ui/carousel` (embla) in 9:16 portrait frame, swipeable, slide counter. Renders each slide to an offscreen `<div>` and uses `html-to-image` → PNG (zip via `jszip`) and `jspdf` for the PDF.
-- `InfographicPreview.tsx` — vertical 1080×1920 SVG/HTML composition, lucide icons, source panel, export PNG via `html-to-image`.
-- `ImagePostPreview.tsx` — square card mock showing overlay text on a placeholder gradient, prompt block with copy button, caption + first comment blocks.
-- `ChartPreview.tsx` — `recharts` (already in deps) bar/line/comparison/ranking; "paste your data" textarea fallback; export PNG via `html-to-image`; source links list. If `insufficient_data`, shows the prompt to switch to conceptual visual (routes to image-post tab).
-- `PollPreview.tsx` — LinkedIn-style poll mock, copy buttons for caption + follow-up + strategy.
-- `ReplyAssistant.tsx` — textarea + Generate, then 6 labelled reply cards each with copy button. Lives in the same Visual Studio (post-scoped) and also as a standalone entry in the sidebar for ad-hoc use.
+Files: new `supabase/functions/_shared/visual-scorer.ts`, call it from each `gen-*` function before saving; new `<QualityBadge />` rendered by each preview component.
 
-Shared:
-- `useVisualAsset(postId, kind)` hook — fetch latest, subscribe to realtime updates, trigger generation.
-- `exportNode(node, filename)` helper wrapping `html-to-image`.
-- All previews wrapped in a `max-w-[420px] mx-auto` mobile frame so the studio is phone-shaped even on desktop.
+## 3. CTA discipline
 
-## 4. Dependencies to add
+Update the system prompts for `gen-carousel`, `gen-infographic`, `gen-image-post`, `gen-poll` to add the rule explicitly:
 
-`html-to-image`, `jspdf`, `jszip`. (`recharts`, `embla-carousel-react`, `lucide-react` already present.)
+> The link `https://build.londonra.com` must appear ONCE, and only where it reads as a useful next step. If it would feel forced (e.g. the post is a pure observation with no relevant offer), omit it entirely. The scorer will mark you down for shoving it in.
 
-## 5. Safety rails (carried over from Wave 3)
+Reply assistant already follows this rule.
 
-- All generated text routed through `_shared/content-sanitize.ts` (no em-dashes, no markdown, no hashtags).
-- Carousel/infographic/poll generators reuse the voice scorer; assets below 7.0 are flagged with a "Regenerate" hint but still shown.
-- Chart generator hard-blocks fabricated numbers — only renders if data has a source URL.
-- Nothing publishes to LinkedIn. Export = local download only.
+## 4. Smoke test (after the above ships)
 
-## 6. Out of scope (this wave)
+I will pick a real existing draft (most recent `status='draft'` with at least one source), then in one script run:
 
-- Real AI image rendering inside the app (we ship the prompt + preview mock; image generation hook can be added next wave).
-- Server-side PDF rendering (client-side `jspdf` is enough for 6–8 slides).
-- Analytics on visual asset usage.
+1. `gen-carousel` → export PDF + PNG zip
+2. `gen-poll`
+3. `reply-assistant` against a sample LinkedIn comment
+4. `gen-image-post`
+5. `gen-infographic` → export PNG
+6. `gen-chart` — only attempt if the chosen draft has numeric data in its sources; otherwise capture the "no verified data" empty state
+
+For each, I'll:
+- save the payload as JSON to `/mnt/documents/visual-studio-smoke/<kind>.json`
+- drive Playwright against the running preview, open the draft, click Create Visual, switch to each tab, screenshot the rendered preview at mobile width (390×844)
+- save the exported PDF / PNG / ZIP to `/mnt/documents/visual-studio-smoke/exports/`
+- write `report.md` with all six quality scorecards, screenshots embedded, files linked via `<presentation-artifact>`
+
+You'll get one summary message with the screenshots and download links so you can judge it from your phone.
+
+## Out of scope
+
+- Replacing the in-app preview with server-side rendered hi-res PNGs (we'll keep client-side `html-to-image` — fast, good enough for LinkedIn).
+- Adding an LLM "retry until score ≥ 7" loop (visible badge is enough this round; we'll add auto-retry if scores come back consistently low).
 
 ## Files
 
 New:
-- `supabase/migrations/<ts>_visual_assets.sql`
+- `supabase/functions/_shared/visual-scorer.ts`
+
+Edited:
 - `supabase/functions/gen-carousel/index.ts`
 - `supabase/functions/gen-infographic/index.ts`
 - `supabase/functions/gen-image-post/index.ts`
 - `supabase/functions/gen-chart/index.ts`
 - `supabase/functions/gen-poll/index.ts`
-- `supabase/functions/reply-assistant/index.ts`
+- `src/components/DraftCard.tsx`
 - `src/components/visual-studio/VisualStudio.tsx`
 - `src/components/visual-studio/CarouselPreview.tsx`
 - `src/components/visual-studio/InfographicPreview.tsx`
 - `src/components/visual-studio/ImagePostPreview.tsx`
 - `src/components/visual-studio/ChartPreview.tsx`
 - `src/components/visual-studio/PollPreview.tsx`
-- `src/components/visual-studio/ReplyAssistant.tsx`
-- `src/components/visual-studio/useVisualAsset.ts`
-- `src/components/visual-studio/exportNode.ts`
 
-Edited:
-- `src/components/DraftCard.tsx` — mount `<VisualStudio postId={…} />`
-- `src/components/SidebarPanel.tsx` — add standalone Reply Assistant entry
-- `src/types/database.ts` / `src/integrations/supabase/types.ts` — regenerated
-
-After build I'll run a smoke test: generate one of each asset on a real draft, export the carousel PDF + slide PNGs, export the infographic PNG, and screenshot the mobile preview to confirm it's truly swipeable and readable.
+New shared component:
+- `src/components/visual-studio/QualityBadge.tsx`

@@ -6,6 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, LineChart, Line, Tool
 import { useVisualAsset } from "./useVisualAsset";
 import { nodeToPngBlob, downloadBlob } from "./exportNode";
 import { useToast } from "@/hooks/use-toast";
+import { QualityBadge } from "./QualityBadge";
 
 export function ChartPreview({ postId, onSwitchToImagePost }: { postId: string; onSwitchToImagePost?: () => void }) {
   const { toast } = useToast();
@@ -139,6 +140,8 @@ export function ChartPreview({ postId, onSwitchToImagePost }: { postId: string; 
           ))}
         </div>
       )}
+
+      <QualityBadge quality={p?.quality} />
 
       <div className="flex flex-wrap gap-2 pt-1">
         <Button size="sm" variant="outline" onClick={exportPng} disabled={exporting}>

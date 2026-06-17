@@ -1,13 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { sanitizeDraftContent } from "../_shared/content-sanitize.ts";
 import { corsHeaders, callClaudeJSON, loadPost, saveAsset, ok, bad, VOICE_RULES } from "../_shared/visual-asset.ts";
+import { scoreVisual } from "../_shared/visual-scorer.ts";
 
 const SYSTEM = `${VOICE_RULES}
 
 Task: turn a LinkedIn post into a 6 to 8 slide LinkedIn carousel.
 Each slide is read in 2 seconds on a phone. Headline = bold idea (max 8 words). Body = max 22 words. Visual direction = one short sentence describing the visual the designer should build (shapes, layout, metaphor — no fake screenshots, no fake logos, no fake quotes). Icon hint = one or two lucide-react icon names (e.g. "Sparkles", "AlertTriangle").
 
-Slide 1 = hook. Final slide = CTA to https://build.londonra.com phrased like a helpful nudge, not a sales pitch.
+Slide 1 = hook. Final slide should nudge toward https://build.londonra.com ONLY if the topic makes that a useful next step (e.g. readiness, leadership, training). If the link would feel forced, write a curiosity/question close instead and omit the URL entirely. The URL must never appear more than once across the whole carousel.
 
 Return ONLY valid JSON, no prose:
 {
@@ -45,6 +46,10 @@ serve(async (req) => {
       visual_direction: clean(s.visual_direction),
       icon_hint: s.icon_hint ?? "Sparkles",
     }));
+
+    try {
+      parsed.quality = await scoreVisual(key, "carousel", parsed, sources);
+    } catch (_) { /* scorer best-effort */ }
 
     const asset = await saveAsset({ postId: post_id, kind: "carousel", payload: parsed });
     return ok({ status: "ok", asset });

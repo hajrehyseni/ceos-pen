@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp, Wand2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Wand2 } from "lucide-react";
 import { CarouselPreview } from "./CarouselPreview";
 import { InfographicPreview } from "./InfographicPreview";
 import { ImagePostPreview } from "./ImagePostPreview";
@@ -9,37 +10,51 @@ import { ChartPreview } from "./ChartPreview";
 import { PollPreview } from "./PollPreview";
 import { ReplyAssistant } from "./ReplyAssistant";
 
+// Delivery order: Carousel → Poll → Reply → Image → Infographic → Chart
+const TABS = [
+  { value: "carousel", label: "Carousel" },
+  { value: "poll", label: "Poll" },
+  { value: "reply", label: "Reply" },
+  { value: "image", label: "Image" },
+  { value: "infographic", label: "Infographic" },
+  { value: "chart", label: "Chart" },
+];
+
 export function VisualStudio({ postId }: { postId: string }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("carousel");
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="pt-2 border-t border-border">
-      <CollapsibleTrigger className="w-full flex items-center justify-between text-[11px] font-medium text-muted-foreground hover:text-foreground transition py-1">
-        <span className="flex items-center gap-1.5">
-          <Wand2 className="w-3 h-3" /> Visual Studio
-          <span className="text-[10px] opacity-60">· carousel, infographic, image, chart, poll, replies</span>
-        </span>
-        {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-      </CollapsibleTrigger>
-      <CollapsibleContent className="pt-3">
-        <Tabs value={tab} onValueChange={setTab}>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="w-full min-h-11">
+          <Wand2 className="w-4 h-4 mr-1.5" /> Create Visual
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md sm:max-w-lg max-h-[92vh] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Wand2 className="w-4 h-4" /> Visual Studio
+          </DialogTitle>
+        </DialogHeader>
+        <Tabs value={tab} onValueChange={setTab} className="mt-2">
           <TabsList className="w-full flex overflow-x-auto justify-start gap-1 h-auto p-1 bg-secondary/60">
-            <TabsTrigger value="carousel" className="text-[11px] px-2.5 py-1.5">Carousel</TabsTrigger>
-            <TabsTrigger value="infographic" className="text-[11px] px-2.5 py-1.5">Infographic</TabsTrigger>
-            <TabsTrigger value="image" className="text-[11px] px-2.5 py-1.5">Image</TabsTrigger>
-            <TabsTrigger value="chart" className="text-[11px] px-2.5 py-1.5">Chart</TabsTrigger>
-            <TabsTrigger value="poll" className="text-[11px] px-2.5 py-1.5">Poll</TabsTrigger>
-            <TabsTrigger value="reply" className="text-[11px] px-2.5 py-1.5">Reply</TabsTrigger>
+            {TABS.map((t) => (
+              <TabsTrigger key={t.value} value={t.value} className="text-[11px] px-2.5 py-1.5 whitespace-nowrap">
+                {t.label}
+              </TabsTrigger>
+            ))}
           </TabsList>
           <TabsContent value="carousel" className="pt-3"><CarouselPreview postId={postId} /></TabsContent>
-          <TabsContent value="infographic" className="pt-3"><InfographicPreview postId={postId} /></TabsContent>
-          <TabsContent value="image" className="pt-3"><ImagePostPreview postId={postId} /></TabsContent>
-          <TabsContent value="chart" className="pt-3"><ChartPreview postId={postId} onSwitchToImagePost={() => setTab("image")} /></TabsContent>
           <TabsContent value="poll" className="pt-3"><PollPreview postId={postId} /></TabsContent>
           <TabsContent value="reply" className="pt-3"><ReplyAssistant /></TabsContent>
+          <TabsContent value="image" className="pt-3"><ImagePostPreview postId={postId} /></TabsContent>
+          <TabsContent value="infographic" className="pt-3"><InfographicPreview postId={postId} /></TabsContent>
+          <TabsContent value="chart" className="pt-3">
+            <ChartPreview postId={postId} onSwitchToImagePost={() => setTab("image")} />
+          </TabsContent>
         </Tabs>
-      </CollapsibleContent>
-    </Collapsible>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -5,6 +5,7 @@ import * as Icons from "lucide-react";
 import { useVisualAsset } from "./useVisualAsset";
 import { nodeToPngBlob, downloadBlob, copyText } from "./exportNode";
 import { useToast } from "@/hooks/use-toast";
+import { QualityBadge } from "./QualityBadge";
 
 function getIcon(name: string) {
   const Comp = (Icons as any)[name];
@@ -116,6 +117,8 @@ export function InfographicPreview({ postId }: { postId: string }) {
           ))}
         </div>
       )}
+
+      <QualityBadge quality={p?.quality} />
 
       <div className="flex flex-wrap gap-2 pt-1">
         <Button size="sm" variant="outline" onClick={exportPng} disabled={exporting}>

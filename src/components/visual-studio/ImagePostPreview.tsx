@@ -4,6 +4,7 @@ import { Sparkles, Copy, Loader2, RefreshCw, ImageIcon, AlertTriangle } from "lu
 import { useVisualAsset } from "./useVisualAsset";
 import { copyText } from "./exportNode";
 import { useToast } from "@/hooks/use-toast";
+import { QualityBadge } from "./QualityBadge";
 
 export function ImagePostPreview({ postId }: { postId: string }) {
   const { toast } = useToast();
@@ -60,6 +61,8 @@ export function ImagePostPreview({ postId }: { postId: string }) {
           <span>{p.risk_notes}</span>
         </div>
       )}
+
+      <QualityBadge quality={p?.quality} />
 
       <div className="flex gap-2 pt-1">
         <Button size="sm" variant="ghost" onClick={() => generate()} disabled={generating}>

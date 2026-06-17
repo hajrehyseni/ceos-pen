@@ -1,13 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { sanitizeDraftContent } from "../_shared/content-sanitize.ts";
 import { corsHeaders, callClaudeJSON, loadPost, saveAsset, ok, bad, VOICE_RULES } from "../_shared/visual-asset.ts";
+import { scoreVisual } from "../_shared/visual-scorer.ts";
 
 const SYSTEM = `${VOICE_RULES}
 
 Task: design a single vertical mobile-friendly LinkedIn infographic distilled from a post.
 3 to 5 visual blocks. Each block: a one or two word label, a short value/number IF AND ONLY IF the source material contains it (else leave value empty), a one-sentence note (max 14 words), and one lucide-react icon name.
 
-Title: max 7 words. Caption: 2-3 short lines including a natural mention of https://build.londonra.com if it fits.
+Title: max 7 words. Caption: 2-3 short lines. Include https://build.londonra.com ONLY if it lands as a useful next step; otherwise omit it. The URL must appear at most once.
 
 NEVER invent statistics. If no numerical claim is in the source, the block "value" must be an empty string and the note must be qualitative.
 
@@ -45,6 +46,8 @@ serve(async (req) => {
       icon: b.icon ?? "Sparkles",
     }));
     parsed.sources = parsed.sources || sources.slice(0, 4).map((s: any) => ({ title: s.title, url: s.url }));
+
+    try { parsed.quality = await scoreVisual(key, "infographic", parsed, sources); } catch (_) {}
 
     const asset = await saveAsset({ postId: post_id, kind: "infographic", payload: parsed });
     return ok({ status: "ok", asset });

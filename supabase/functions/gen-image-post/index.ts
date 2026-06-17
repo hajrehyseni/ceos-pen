@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { sanitizeDraftContent } from "../_shared/content-sanitize.ts";
 import { corsHeaders, callClaudeJSON, loadPost, saveAsset, ok, bad, VOICE_RULES } from "../_shared/visual-asset.ts";
+import { scoreVisual } from "../_shared/visual-scorer.ts";
 
 const SYSTEM = `${VOICE_RULES}
 
@@ -13,7 +14,7 @@ Return ONLY valid JSON:
   "style": "art direction in 1-2 sentences (palette, composition, mood). British editorial. No stock photos of handshakes or arrows.",
   "image_prompt": "a full prompt ready to paste into an AI image tool. Describe subject, composition, colour palette, lighting, style references. Forbidden: fake logos, fake screenshots, fake people likenesses, fake brand names, text other than the overlay_text.",
   "caption": "LinkedIn caption that pairs with the image, 3-6 short lines in Hajrë's voice",
-  "first_comment": "first comment with https://build.londonra.com naturally placed",
+  "first_comment": "first comment text. Include https://build.londonra.com ONLY if it's a useful next step for this post; otherwise leave the URL out and write a curiosity/question prompt instead.",
   "risk_notes": "any things to double-check before posting (e.g. 'avoid likeness of real CEO', 'crop to 1:1')"
 }`;
 
@@ -36,6 +37,8 @@ serve(async (req) => {
     parsed.first_comment = clean(parsed.first_comment);
     parsed.risk_notes = clean(parsed.risk_notes ?? "");
     // image_prompt is for an external tool — leave as-is.
+
+    try { parsed.quality = await scoreVisual(key, "image_post", parsed, Array.isArray(post.source_material) ? post.source_material : []); } catch (_) {}
 
     const asset = await saveAsset({ postId: post_id, kind: "image_post", payload: parsed });
     return ok({ status: "ok", asset });
