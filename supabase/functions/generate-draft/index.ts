@@ -394,6 +394,16 @@ serve(async (req) => {
       .from("voice_samples").select("*")
       .order("performance_rating", { ascending: false }).limit(3);
 
+    // CEO context (single row) + lead-magnet CTAs
+    const { data: ceoCtx } = await supabase
+      .from("ceo_context").select("*").limit(1).maybeSingle();
+    const { data: ctaRows } = await supabase
+      .from("cta_library").select("*").eq("enabled", true);
+    const hardRatio = Number(ceoCtx?.hard_cta_ratio ?? 0.4);
+    const selectedCta = ctaRows ? pickCta(ctaRows as CtaRow[], hardRatio) : null;
+    const leadMagnetUrl = ceoCtx?.lead_magnet_url || "https://build.londonra.com";
+    const forbiddenList = parseForbiddenList(ceoCtx?.forbidden_phrases || DEFAULT_FORBIDDEN.join(";"));
+
     // Recent rejections
     const { data: rejectedPosts } = await supabase
       .from("posts").select("content, rejection_reason")
