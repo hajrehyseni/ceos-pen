@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { sanitizeForLinkedIn } from "../_shared/linkedin-sanitize.ts";
+import { postFirstComment } from "../_shared/linkedin-first-comment.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -77,6 +79,12 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Load CEO context once — used for auto-first-comment defaults
+    const { data: ceoCtx } = await supabase
+      .from("ceo_context").select("auto_first_comment, lead_magnet_url").limit(1).maybeSingle();
+    const autoFirstComment = ceoCtx?.auto_first_comment !== false;
+    const leadMagnetUrl = ceoCtx?.lead_magnet_url || "https://build.londonra.com";
 
     const results = [];
 

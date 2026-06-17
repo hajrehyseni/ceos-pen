@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { sanitizeForLinkedIn } from "../_shared/linkedin-sanitize.ts";
+import { postFirstComment } from "../_shared/linkedin-first-comment.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -129,11 +131,39 @@ serve(async (req) => {
     const now = new Date().toISOString();
     await supabase.from("posts").update({ status: "published", published_at: now }).eq("id", post_id);
 
+    // ===== Auto first-comment with lead-magnet CTA =====
+    let firstCommentResult: Record<string, unknown> | null = null;
+    if (linkedinId && post.first_comment_text) {
+      const { data: ceoCtx } = await supabase
+        .from("ceo_context").select("auto_first_comment, lead_magnet_url").limit(1).maybeSingle();
+      const autoEnabled = ceoCtx?.auto_first_comment !== false;
+      if (autoEnabled) {
+        const leadUrl = ceoCtx?.lead_magnet_url || "https://build.londonra.com";
+        const commentText = post.first_comment_text.includes(leadUrl)
+          ? post.first_comment_text
+          : `${post.first_comment_text}\n${leadUrl}`;
+        try {
+          const c = await postFirstComment({
+            accessToken, personUrn, shareUrn: linkedinId, text: commentText,
+          });
+          firstCommentResult = { status: c.status, ok: c.ok, comment_urn: c.commentUrn };
+          if (c.ok) {
+            await supabase.from("posts").update({ first_comment_posted_at: now }).eq("id", post_id);
+          } else {
+            console.error("First-comment failed", c.status, c.body);
+          }
+        } catch (e) {
+          firstCommentResult = { status: 0, ok: false, error: String(e) };
+          console.error("First-comment threw:", e);
+        }
+      }
+    }
+
     await supabase.from("agent_log").insert({
       action: "linkedin_published_ugc",
       api_cost_usd: 0,
       tokens_used: 0,
-      details: { post_id, linkedin_id: linkedinId, published_at: now, resolved_urn: personUrn, api: "ugcPosts" },
+      details: { post_id, linkedin_id: linkedinId, published_at: now, resolved_urn: personUrn, api: "ugcPosts", first_comment: firstCommentResult },
     });
 
     return new Response(
