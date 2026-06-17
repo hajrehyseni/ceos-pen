@@ -106,7 +106,8 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
   const sources = post.source_material as any[] | null;
 
   return (
-    <div className="card-surface p-6 space-y-4">
+    <div className="card-surface p-4 sm:p-6 space-y-4">
+
       {/* Pillar tag */}
       <div className="flex items-center justify-between">
         <span className={`text-xs font-medium px-3 py-1 rounded-full border ${pillarClasses}`}>
