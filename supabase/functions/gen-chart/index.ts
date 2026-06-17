@@ -53,6 +53,8 @@ serve(async (req) => {
       parsed.reason = "No numeric values survived validation.";
     }
 
+    try { parsed.quality = await scoreVisual(key, "chart", parsed, sources); } catch (_) {}
+
     const asset = await saveAsset({ postId: post_id, kind: "chart", payload: parsed });
     return ok({ status: "ok", asset });
   } catch (e: any) {
