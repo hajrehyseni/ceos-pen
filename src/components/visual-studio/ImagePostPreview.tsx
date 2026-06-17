@@ -51,17 +51,17 @@ export function ImagePostPreview({ postId, draftContent }: { postId: string; dra
           </Button>
         </div>
       )}
-      <div className="max-w-[360px] mx-auto">
+      <div className="w-full max-w-[300px] sm:max-w-[360px] mx-auto overflow-hidden">
         <div
           ref={ref}
-          className="aspect-square rounded-xl p-6 flex items-center justify-center text-white text-center"
+          className="aspect-square rounded-xl p-5 sm:p-6 flex items-center justify-center text-white text-center overflow-hidden"
           style={{ background: "radial-gradient(circle at 25% 20%,#22d3ee33 0,#22d3ee00 32%), linear-gradient(135deg,#0f172a 0%,#1f2937 48%,#312e81 100%)" }}
         >
           <div className="space-y-5">
             <div className="mx-auto h-14 w-14 rounded-full border border-white/20 bg-white/10 flex items-center justify-center">
               <ImageIcon className="w-7 h-7 opacity-80" />
             </div>
-            <span className="block text-2xl font-semibold leading-tight">{p?.overlay_text}</span>
+            <span className="block text-xl sm:text-2xl font-semibold leading-tight break-words">{p?.overlay_text}</span>
             <div className="text-[10px] uppercase tracking-widest opacity-55">London Royal Academy</div>
           </div>
         </div>

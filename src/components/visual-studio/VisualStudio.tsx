@@ -31,13 +31,13 @@ export function VisualStudio({ postId, draftContent }: { postId: string; draftCo
           <Wand2 className="w-4 h-4 mr-1.5" /> Create Visual Studio assets
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md sm:max-w-lg max-h-[92vh] overflow-y-auto p-4 sm:p-6">
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-md sm:max-w-lg max-h-[92vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Wand2 className="w-4 h-4" /> Visual Studio
           </DialogTitle>
         </DialogHeader>
-        <div className="rounded-md border border-border bg-secondary/40 p-3 text-xs text-muted-foreground">
+        <div className="rounded-md border border-border bg-secondary/40 p-3 pr-8 text-xs text-muted-foreground">
           Real previews are shown immediately from the draft. Use the create buttons to replace them with AI-polished assets, then export.
         </div>
         <Tabs value={tab} onValueChange={setTab} className="mt-2">

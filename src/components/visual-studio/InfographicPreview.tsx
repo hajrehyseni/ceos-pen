@@ -59,14 +59,14 @@ export function InfographicPreview({ postId, draftContent }: { postId: string; d
           </Button>
         </div>
       )}
-      <div className="max-w-[360px] mx-auto">
+      <div className="w-full max-w-[300px] sm:max-w-[360px] mx-auto overflow-hidden">
         <div
           ref={ref}
-          className="rounded-xl p-6 text-white"
+          className="rounded-xl p-5 sm:p-6 text-white overflow-hidden"
           style={{ background: "linear-gradient(170deg,#0f172a 0%,#1e1b4b 60%,#312e81 100%)", aspectRatio: "9/16" }}
         >
           <div className="text-[10px] uppercase tracking-widest opacity-60 mb-3">London Royal Academy</div>
-          <h4 className="text-xl font-semibold leading-tight">{p?.title}</h4>
+          <h4 className="text-lg sm:text-xl font-semibold leading-tight break-words">{p?.title}</h4>
           {p?.subtitle && <p className="text-xs opacity-70 mt-1">{p.subtitle}</p>}
           <div className="mt-5 space-y-3">
             {(p?.blocks ?? []).map((b: any, i: number) => {
@@ -79,7 +79,7 @@ export function InfographicPreview({ postId, draftContent }: { postId: string; d
                       <span className="text-xs uppercase tracking-wide opacity-70">{b.label}</span>
                       {b.value && <span className="text-base font-semibold">{b.value}</span>}
                     </div>
-                    <p className="text-xs opacity-85 leading-snug mt-0.5">{b.note}</p>
+                    <p className="text-[11px] sm:text-xs opacity-85 leading-snug mt-0.5 break-words">{b.note}</p>
                   </div>
                 </div>
               );
