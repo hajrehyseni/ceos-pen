@@ -7,6 +7,7 @@ import { useVisualAsset } from "./useVisualAsset";
 import { nodeToPngBlob, downloadBlob, copyText } from "./exportNode";
 import { useToast } from "@/hooks/use-toast";
 import { QualityBadge } from "./QualityBadge";
+import { makeCarouselFallback } from "./visualDefaults";
 
 interface Slide {
   n: number;
@@ -21,7 +22,7 @@ function getIcon(name: string) {
   return Comp ?? Icons.Sparkles;
 }
 
-export function CarouselPreview({ postId }: { postId: string }) {
+export function CarouselPreview({ postId, draftContent }: { postId: string; draftContent: string }) {
   const { toast } = useToast();
   const { asset, generating, generate, error } = useVisualAsset(postId, "carousel");
   const [api, setApi] = useState<CarouselApi | null>(null);
@@ -29,7 +30,7 @@ export function CarouselPreview({ postId }: { postId: string }) {
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [exporting, setExporting] = useState<null | "png" | "pdf">(null);
 
-  const payload = asset?.payload;
+  const payload = asset?.payload ?? makeCarouselFallback(draftContent);
   const slides: Slide[] = payload?.slides ?? [];
 
   useEffect(() => {
@@ -100,19 +101,6 @@ export function CarouselPreview({ postId }: { postId: string }) {
     toast({ title: "Carousel text copied" });
   }
 
-  if (!asset && !generating) {
-    return (
-      <div className="rounded-md border border-dashed border-border p-6 text-center space-y-3">
-        <FileText className="w-8 h-8 mx-auto text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">No carousel yet. Generate one from this draft.</p>
-        <Button size="sm" onClick={() => generate()} disabled={generating}>
-          <Sparkles className="w-4 h-4 mr-1" /> Create carousel
-        </Button>
-        {error && <p className="text-xs text-destructive">{error}</p>}
-      </div>
-    );
-  }
-
   if (generating && !asset) {
     return (
       <div className="rounded-md border border-border p-6 text-center space-y-2">
@@ -125,8 +113,16 @@ export function CarouselPreview({ postId }: { postId: string }) {
   return (
     <div className="space-y-3">
       {payload?.title && <h4 className="text-sm font-semibold">{payload.title}</h4>}
+      {!asset && (
+        <div className="rounded-md border border-primary/30 bg-primary/10 p-3 text-xs text-muted-foreground flex items-start justify-between gap-3">
+          <span>Instant draft preview. Create carousel to polish it with the visual agent and save it.</span>
+          <Button size="sm" onClick={() => generate()} disabled={generating} className="shrink-0">
+            <Sparkles className="w-3.5 h-3.5 mr-1" /> Create
+          </Button>
+        </div>
+      )}
 
-      <div className="max-w-[360px] mx-auto">
+      <div className="w-[260px] sm:w-[340px] mx-auto overflow-hidden">
         <Carousel setApi={setApi} opts={{ align: "center" }}>
           <CarouselContent>
             {slides.map((s, i) => {
@@ -135,7 +131,7 @@ export function CarouselPreview({ postId }: { postId: string }) {
                 <CarouselItem key={i}>
                   <div
                     ref={(el) => (slideRefs.current[i] = el)}
-                    className="aspect-[4/5] w-full rounded-xl p-6 flex flex-col justify-between text-white"
+                    className="aspect-[4/5] w-full rounded-xl p-5 sm:p-6 flex flex-col justify-between text-white overflow-hidden"
                     style={{
                       background:
                         i === slides.length - 1
@@ -151,10 +147,10 @@ export function CarouselPreview({ postId }: { postId: string }) {
                     </div>
                     <div className="space-y-3">
                       <Icon className="w-7 h-7 opacity-80" />
-                      <h5 className="text-xl font-semibold leading-tight">{s.headline}</h5>
-                      <p className="text-sm leading-relaxed opacity-90">{s.body}</p>
+                      <h5 className="text-lg sm:text-xl font-semibold leading-tight break-words">{s.headline}</h5>
+                      <p className="text-xs sm:text-sm leading-relaxed opacity-90 break-words">{s.body}</p>
                     </div>
-                    <div className="text-[10px] opacity-50 italic">{s.visual_direction}</div>
+                    <div className="text-[10px] opacity-50 italic line-clamp-3 break-words">{s.visual_direction}</div>
                   </div>
                 </CarouselItem>
               );
@@ -169,6 +165,18 @@ export function CarouselPreview({ postId }: { postId: string }) {
           <button className="p-1 hover:text-foreground" onClick={() => api?.scrollNext()}>
             <ChevronRight className="w-4 h-4" />
           </button>
+        </div>
+        <div className="grid grid-cols-6 gap-1.5 mt-3">
+          {slides.map((s, i) => (
+            <button
+              key={s.n}
+              type="button"
+              onClick={() => api?.scrollTo(i)}
+              className={`aspect-[4/5] rounded border text-[10px] ${current === i ? "border-primary bg-primary/20" : "border-border bg-secondary/50"}`}
+            >
+              {i + 1}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -197,6 +205,7 @@ export function CarouselPreview({ postId }: { postId: string }) {
           <RefreshCw className={`w-3.5 h-3.5 mr-1 ${generating ? "animate-spin" : ""}`} /> Regenerate
         </Button>
       </div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }

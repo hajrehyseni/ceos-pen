@@ -6,19 +6,20 @@ import { useVisualAsset } from "./useVisualAsset";
 import { nodeToPngBlob, downloadBlob, copyText } from "./exportNode";
 import { useToast } from "@/hooks/use-toast";
 import { QualityBadge } from "./QualityBadge";
+import { makeInfographicFallback } from "./visualDefaults";
 
 function getIcon(name: string) {
   const Comp = (Icons as any)[name];
   return Comp ?? Icons.Sparkles;
 }
 
-export function InfographicPreview({ postId }: { postId: string }) {
+export function InfographicPreview({ postId, draftContent }: { postId: string; draftContent: string }) {
   const { toast } = useToast();
   const { asset, generating, generate, error } = useVisualAsset(postId, "infographic");
   const ref = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
 
-  const p = asset?.payload;
+  const p = asset?.payload ?? makeInfographicFallback(draftContent);
 
   async function exportPng() {
     if (!ref.current) return;
@@ -39,19 +40,6 @@ export function InfographicPreview({ postId }: { postId: string }) {
     toast({ title: "Caption copied" });
   }
 
-  if (!asset && !generating) {
-    return (
-      <div className="rounded-md border border-dashed border-border p-6 text-center space-y-3">
-        <LayoutTemplate className="w-8 h-8 mx-auto text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">No infographic yet.</p>
-        <Button size="sm" onClick={() => generate()} disabled={generating}>
-          <Sparkles className="w-4 h-4 mr-1" /> Create infographic
-        </Button>
-        {error && <p className="text-xs text-destructive">{error}</p>}
-      </div>
-    );
-  }
-
   if (generating && !asset) {
     return (
       <div className="rounded-md border border-border p-6 text-center">
@@ -63,14 +51,22 @@ export function InfographicPreview({ postId }: { postId: string }) {
 
   return (
     <div className="space-y-3">
-      <div className="max-w-[360px] mx-auto">
+      {!asset && (
+        <div className="rounded-md border border-primary/30 bg-primary/10 p-3 text-xs text-muted-foreground flex items-start justify-between gap-3">
+          <span>Instant infographic from the draft. Create infographic to polish blocks and source treatment.</span>
+          <Button size="sm" onClick={() => generate()} disabled={generating} className="shrink-0">
+            <Sparkles className="w-3.5 h-3.5 mr-1" /> Create
+          </Button>
+        </div>
+      )}
+      <div className="w-[260px] sm:w-[340px] mx-auto overflow-hidden">
         <div
           ref={ref}
-          className="rounded-xl p-6 text-white"
+          className="rounded-xl p-5 sm:p-6 text-white overflow-hidden"
           style={{ background: "linear-gradient(170deg,#0f172a 0%,#1e1b4b 60%,#312e81 100%)", aspectRatio: "9/16" }}
         >
           <div className="text-[10px] uppercase tracking-widest opacity-60 mb-3">London Royal Academy</div>
-          <h4 className="text-xl font-semibold leading-tight">{p?.title}</h4>
+          <h4 className="text-lg sm:text-xl font-semibold leading-tight break-words">{p?.title}</h4>
           {p?.subtitle && <p className="text-xs opacity-70 mt-1">{p.subtitle}</p>}
           <div className="mt-5 space-y-3">
             {(p?.blocks ?? []).map((b: any, i: number) => {
@@ -83,7 +79,7 @@ export function InfographicPreview({ postId }: { postId: string }) {
                       <span className="text-xs uppercase tracking-wide opacity-70">{b.label}</span>
                       {b.value && <span className="text-base font-semibold">{b.value}</span>}
                     </div>
-                    <p className="text-xs opacity-85 leading-snug mt-0.5">{b.note}</p>
+                    <p className="text-[11px] sm:text-xs opacity-85 leading-snug mt-0.5 break-words">{b.note}</p>
                   </div>
                 </div>
               );
@@ -132,6 +128,7 @@ export function InfographicPreview({ postId }: { postId: string }) {
           <RefreshCw className={`w-3.5 h-3.5 mr-1 ${generating ? "animate-spin" : ""}`} /> Regenerate
         </Button>
       </div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }

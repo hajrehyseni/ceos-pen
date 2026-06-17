@@ -388,7 +388,7 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
         </div>
       )}
 
-      <VisualStudio postId={post.id} />
+      <VisualStudio postId={post.id} draftContent={post.content} />
     </div>
   );
 }
