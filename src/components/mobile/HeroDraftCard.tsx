@@ -134,7 +134,6 @@ export function HeroDraftCard({ drafts, onUpdate }: Props) {
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={0.5}
-            style={{ x, rotate }}
             onDragEnd={onDragEnd}
             initial={{ opacity: 0, y: 12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
