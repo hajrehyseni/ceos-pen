@@ -854,8 +854,11 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
         voice_rewrite_attempted: voiceRewriteAttempted,
         engagement_estimate: engagement,
         scorer_retried: scorerRetried,
-        cta_id: selectedCta?.id ?? null,
-        cta_type: selectedCta?.cta_type ?? null,
+        cta_id: usedDefaultCta ? null : selectedCta.id,
+        cta_type: selectedCta.cta_type,
+        cta_default_used: usedDefaultCta,
+        scorecard_in_body: ctaMode === "hard",
+        scorecard_in_first_comment: ctaMode === "soft",
       },
     });
 
