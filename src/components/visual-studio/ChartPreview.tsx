@@ -100,7 +100,7 @@ export function ChartPreview({ postId, onSwitchToImagePost }: { postId: string; 
     <div className="space-y-3">
       <div className="max-w-[360px] mx-auto">
         <div ref={ref} className="rounded-xl p-5 text-white" style={{ background: "linear-gradient(170deg,#0f172a,#1e1b4b)", aspectRatio: "4/5" }}>
-          <div className="text-[10px] uppercase tracking-widest opacity-60">LRA · Verified</div>
+          <div className="text-[10px] uppercase tracking-widest opacity-60">CEO Pen · Verified</div>
           <h4 className="text-lg font-semibold leading-tight mt-1">{p?.title}</h4>
           {p?.unit && <p className="text-[10px] opacity-60">in {p.unit}</p>}
           <div className="h-[55%] mt-4">

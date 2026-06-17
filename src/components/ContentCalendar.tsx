@@ -19,7 +19,7 @@ export function ContentCalendar({ posts }: ContentCalendarProps) {
 
   return (
     <div className="card-surface p-5 space-y-3">
-      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Content Calendar</h3>
+      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">This Week</h3>
       <div className="space-y-1">
         {weekDays.map((day, i) => {
           const pillarKey = DAY_PILLARS[i];

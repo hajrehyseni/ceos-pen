@@ -63,7 +63,7 @@ export function HeaderBar({ weeklyCount, onSettingsClick, onDataRefresh }: Heade
         {/* Row 1: brand + week count + settings */}
         <div className="flex items-center justify-between gap-2 sm:gap-3">
           <h1 className="text-base sm:text-lg font-bold text-foreground tracking-tight">
-            LinkedIn Ghostwriter — <span className="text-primary">LRA</span>
+            CEO <span className="text-primary">Pen</span>
           </h1>
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex items-center gap-1 text-xs sm:text-sm">
@@ -107,7 +107,7 @@ export function HeaderBar({ weeklyCount, onSettingsClick, onDataRefresh }: Heade
             className="flex-1 sm:flex-none min-h-11"
           >
             <Newspaper className="w-4 h-4 mr-1" />
-            {collectingNews ? "Collecting…" : "News"}
+            {collectingNews ? "Collecting…" : "AI News"}
           </Button>
           <Button
             size="sm"
@@ -116,7 +116,7 @@ export function HeaderBar({ weeklyCount, onSettingsClick, onDataRefresh }: Heade
             className="flex-1 sm:flex-none min-h-11"
           >
             <Sparkles className="w-4 h-4 mr-1" />
-            {generatingDraft ? "Generating…" : "Generate Draft"}
+            {generatingDraft ? "Generating…" : "New Draft"}
           </Button>
         </div>
       </div>

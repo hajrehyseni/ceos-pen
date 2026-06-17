@@ -19,7 +19,7 @@ export function DraftQueue({ posts, onUpdate }: DraftQueueProps) {
         <div>
           <p className="text-foreground font-medium">No drafts waiting</p>
           <p className="text-sm text-muted-foreground mt-1">
-            Your ghostwriter runs at 7:30 AM UTC on weekdays.
+            CEO Pen drafts at 7:30 AM UTC on weekdays.
           </p>
         </div>
       </div>
@@ -29,7 +29,7 @@ export function DraftQueue({ posts, onUpdate }: DraftQueueProps) {
   return (
     <div className="space-y-4">
       <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-        Draft Queue ({drafts.length})
+        Drafts ({drafts.length})
       </h2>
       {drafts.map((post) => (
         <DraftCard key={post.id} post={post} onUpdate={onUpdate} />

@@ -142,7 +142,7 @@ export function CarouselPreview({ postId, draftContent }: { postId: string; draf
                     }}
                   >
                     <div className="flex items-center justify-between text-[10px] uppercase tracking-widest opacity-70">
-                      <span>LRA · Hajrë</span>
+                      <span>CEO Pen · Hajrë</span>
                       <span>{s.n} / {slides.length}</span>
                     </div>
                     <div className="space-y-3">
