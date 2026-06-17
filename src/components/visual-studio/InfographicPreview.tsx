@@ -59,7 +59,7 @@ export function InfographicPreview({ postId, draftContent }: { postId: string; d
           </Button>
         </div>
       )}
-      <div className="w-full max-w-[300px] sm:max-w-[360px] mx-auto overflow-hidden">
+      <div className="w-[260px] sm:w-[340px] mx-auto overflow-hidden">
         <div
           ref={ref}
           className="rounded-xl p-5 sm:p-6 text-white overflow-hidden"

@@ -122,7 +122,7 @@ export function CarouselPreview({ postId, draftContent }: { postId: string; draf
         </div>
       )}
 
-      <div className="w-full max-w-[300px] sm:max-w-[360px] mx-auto overflow-hidden">
+      <div className="w-[260px] sm:w-[340px] mx-auto overflow-hidden">
         <Carousel setApi={setApi} opts={{ align: "center" }}>
           <CarouselContent>
             {slides.map((s, i) => {
@@ -150,7 +150,7 @@ export function CarouselPreview({ postId, draftContent }: { postId: string; draf
                       <h5 className="text-lg sm:text-xl font-semibold leading-tight break-words">{s.headline}</h5>
                       <p className="text-xs sm:text-sm leading-relaxed opacity-90 break-words">{s.body}</p>
                     </div>
-                    <div className="text-[10px] opacity-50 italic">{s.visual_direction}</div>
+                    <div className="text-[10px] opacity-50 italic line-clamp-3 break-words">{s.visual_direction}</div>
                   </div>
                 </CarouselItem>
               );

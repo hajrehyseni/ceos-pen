@@ -51,7 +51,7 @@ export function ImagePostPreview({ postId, draftContent }: { postId: string; dra
           </Button>
         </div>
       )}
-      <div className="w-full max-w-[300px] sm:max-w-[360px] mx-auto overflow-hidden">
+      <div className="w-[260px] sm:w-[340px] mx-auto overflow-hidden">
         <div
           ref={ref}
           className="aspect-square rounded-xl p-5 sm:p-6 flex items-center justify-center text-white text-center overflow-hidden"
@@ -65,7 +65,7 @@ export function ImagePostPreview({ postId, draftContent }: { postId: string; dra
             <div className="text-[10px] uppercase tracking-widest opacity-55">London Royal Academy</div>
           </div>
         </div>
-        <p className="text-[10px] text-muted-foreground italic mt-2 text-center">{p?.concept}</p>
+        <p className="text-[10px] text-muted-foreground italic mt-2 text-center break-words line-clamp-3">{p?.concept}</p>
       </div>
 
       <Field label="Style" value={p?.style} onCopy={(v) => copyField("Style", v)} />
@@ -82,7 +82,7 @@ export function ImagePostPreview({ postId, draftContent }: { postId: string; dra
 
       <QualityBadge quality={p?.quality} />
 
-      <div className="flex gap-2 pt-1">
+      <div className="flex flex-wrap gap-2 pt-1">
         <Button size="sm" variant="outline" onClick={exportPng} disabled={exporting}>
           {exporting ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5 mr-1" />}
           PNG
@@ -121,7 +121,7 @@ function Field({
           <Copy className="w-3 h-3" />
         </button>
       </div>
-      <div className={`${mono ? "font-mono" : ""} ${multiline ? "whitespace-pre-line" : ""}`}>{value}</div>
+      <div className={`break-words ${mono ? "font-mono" : ""} ${multiline ? "whitespace-pre-line" : ""}`}>{value}</div>
     </div>
   );
 }
