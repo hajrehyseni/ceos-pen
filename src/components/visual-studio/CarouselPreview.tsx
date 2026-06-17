@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Carousel, CarouselContent, CarouselItem, CarouselApi } from "@/components/ui/carousel";
 import { Sparkles, Download, Copy, FileText, Loader2, ImageIcon, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
@@ -31,9 +31,15 @@ export function CarouselPreview({ postId }: { postId: string }) {
   const payload = asset?.payload;
   const slides: Slide[] = payload?.slides ?? [];
 
-  if (api && current === 0) {
-    api.on("select", () => setCurrent(api.selectedScrollSnap()));
-  }
+  useEffect(() => {
+    if (!api) return;
+    setCurrent(api.selectedScrollSnap());
+    const onSelect = () => setCurrent(api.selectedScrollSnap());
+    api.on("select", onSelect);
+    return () => {
+      api.off("select", onSelect);
+    };
+  }, [api]);
 
   async function exportPng() {
     if (!slides.length) return;
