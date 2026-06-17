@@ -4,12 +4,26 @@ import { Post, PostMetrics, AgentLog } from "@/types/database";
 import { PasswordGate } from "@/components/PasswordGate";
 import { HeaderBar } from "@/components/HeaderBar";
 import { DraftQueue } from "@/components/DraftQueue";
-import { SidebarPanel } from "@/components/SidebarPanel";
 import { PublishedView } from "@/components/PublishedView";
 import { AnalyticsView } from "@/components/AnalyticsView";
 import { SettingsPage } from "@/components/SettingsPage";
+import { BottomTabBar, MobileTab } from "@/components/mobile/BottomTabBar";
+import { CostStrip } from "@/components/mobile/CostStrip";
+import { HeroDraftCard } from "@/components/mobile/HeroDraftCard";
+import { CompactNewsList } from "@/components/mobile/CompactNewsList";
+import { AgentStatusFooter } from "@/components/mobile/AgentStatusFooter";
+import { ReplyAssistant } from "@/components/visual-studio/ReplyAssistant";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { MessageSquare } from "lucide-react";
 
-type Tab = "today" | "drafts" | "published" | "analytics" | "settings";
+type Tab = MobileTab | "settings";
+
+function scoreRank(p: Post): number {
+  const base = typeof p.virality_score === "number" ? p.virality_score : 0;
+  const eng = p.engagement_estimate === "high" ? 2 : p.engagement_estimate === "medium" ? 1 : 0;
+  const verified = p.verification_status === "passed" ? 1 : 0;
+  return base + eng + verified;
+}
 
 export default function Index() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -19,6 +33,7 @@ export default function Index() {
   const [metrics, setMetrics] = useState<PostMetrics[]>([]);
   const [agentLogs, setAgentLogs] = useState<AgentLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [replyOpen, setReplyOpen] = useState(false);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -45,24 +60,16 @@ export default function Index() {
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    if (authenticated) fetchData();
-  }, [authenticated, fetchData]);
+  useEffect(() => { if (authenticated) fetchData(); }, [authenticated, fetchData]);
 
-  // Auto-refresh every 60 seconds
   useEffect(() => {
     if (!authenticated) return;
     const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
   }, [authenticated, fetchData]);
 
-  if (!authChecked) {
-    return <div className="min-h-screen bg-background" />;
-  }
-
-  if (!authenticated) {
-    return <PasswordGate onAuthenticated={() => setAuthenticated(true)} />;
-  }
+  if (!authChecked) return <div className="min-h-screen bg-background" />;
+  if (!authenticated) return <PasswordGate onAuthenticated={() => setAuthenticated(true)} />;
 
   // Weekly count
   const now = new Date();
@@ -70,96 +77,68 @@ export default function Index() {
   monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
   monday.setHours(0, 0, 0, 0);
   const weeklyCount = posts.filter(
-    (p) =>
-      (p.status === "published" || p.status === "approved") &&
-      new Date(p.created_at) >= monday
+    (p) => (p.status === "published" || p.status === "approved") && new Date(p.created_at) >= monday
   ).length;
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: "today", label: "Today" },
-    { key: "drafts", label: "Drafts" },
-    { key: "published", label: "Published" },
-    { key: "analytics", label: "Analytics" },
-  ];
-
-  const todayStr = new Date().toISOString().split("T")[0];
-  const todaysDrafts = posts.filter(
-    (p) => (p.status === "draft" || p.status === "approved") && p.created_at.startsWith(todayStr)
-  );
+  const queuedDrafts = posts
+    .filter((p) => p.status === "draft" || p.status === "approved")
+    .sort((a, b) => scoreRank(b) - scoreRank(a));
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-[calc(env(safe-area-inset-bottom)+72px)]">
       <HeaderBar
         weeklyCount={weeklyCount}
         onSettingsClick={() => setActiveTab("settings")}
         onDataRefresh={fetchData}
       />
 
-      {activeTab === "settings" ? (
-        <div className="max-w-screen-2xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
+      <main className="max-w-screen-sm mx-auto px-3 py-3 space-y-4">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : activeTab === "settings" ? (
           <SettingsPage onBack={() => setActiveTab("today")} />
-        </div>
-      ) : (
-        <>
-          {/* Tab bar — horizontal scroll on mobile */}
-          <div className="max-w-screen-2xl mx-auto px-3 sm:px-6 pt-4 sm:pt-6">
-            <div className="flex gap-1 p-1 bg-secondary/50 rounded-lg w-full sm:w-fit overflow-x-auto">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`flex-1 sm:flex-none min-h-11 px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                    activeTab === tab.key
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {tab.label}
+        ) : activeTab === "today" ? (
+          <>
+            <CostStrip agentLogs={agentLogs} />
+            <HeroDraftCard drafts={queuedDrafts} onUpdate={fetchData} />
+            <CompactNewsList />
+            <Sheet open={replyOpen} onOpenChange={setReplyOpen}>
+              <SheetTrigger asChild>
+                <button className="w-full card-surface px-3 py-3 flex items-center justify-between active:bg-secondary/40 transition">
+                  <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <MessageSquare className="w-4 h-4 text-primary" /> Reply Assistant
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">Open →</span>
                 </button>
-              ))}
-            </div>
-          </div>
+              </SheetTrigger>
+              <SheetContent side="bottom" className="bg-card border-border max-h-[90vh] overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle className="flex items-center gap-2"><MessageSquare className="w-4 h-4 text-primary" /> Reply Assistant</SheetTitle>
+                </SheetHeader>
+                <div className="pt-4">
+                  <ReplyAssistant />
+                </div>
+              </SheetContent>
+            </Sheet>
+            <AgentStatusFooter agentLogs={agentLogs} />
+          </>
+        ) : activeTab === "drafts" ? (
+          <DraftQueue posts={posts} onUpdate={fetchData} />
+        ) : activeTab === "published" ? (
+          <PublishedView posts={posts} metrics={metrics} />
+        ) : (
+          <AnalyticsView posts={posts} metrics={metrics} agentLogs={agentLogs} />
+        )}
+      </main>
 
-          {/* Content */}
-          <div className="max-w-screen-2xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
-            {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : activeTab === "today" ? (
-              <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
-                <div className="flex-1 lg:w-[70%] order-2 lg:order-1 space-y-4">
-                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                    Today's Drafts ({todaysDrafts.length})
-                  </h2>
-                  {todaysDrafts.length === 0 ? (
-                    <div className="card-surface p-8 text-center text-sm text-muted-foreground">
-                      Nothing yet for today. Tap <span className="text-foreground font-medium">New Draft</span> in the header to write one now.
-                    </div>
-                  ) : (
-                    <DraftQueue posts={todaysDrafts} onUpdate={fetchData} />
-                  )}
-                </div>
-                <div className="lg:w-[30%] order-1 lg:order-2">
-                  <SidebarPanel posts={posts} metrics={metrics} agentLogs={agentLogs} />
-                </div>
-              </div>
-            ) : activeTab === "drafts" ? (
-              <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
-                <div className="flex-1 lg:w-[70%] order-2 lg:order-1">
-                  <DraftQueue posts={posts} onUpdate={fetchData} />
-                </div>
-                <div className="lg:w-[30%] order-1 lg:order-2">
-                  <SidebarPanel posts={posts} metrics={metrics} agentLogs={agentLogs} />
-                </div>
-              </div>
-            ) : activeTab === "published" ? (
-              <PublishedView posts={posts} metrics={metrics} />
-            ) : (
-              <AnalyticsView posts={posts} metrics={metrics} agentLogs={agentLogs} />
-            )}
-          </div>
-        </>
+      {activeTab !== "settings" && (
+        <BottomTabBar
+          active={activeTab as MobileTab}
+          onChange={(t) => setActiveTab(t)}
+          draftCount={queuedDrafts.length}
+        />
       )}
     </div>
   );
