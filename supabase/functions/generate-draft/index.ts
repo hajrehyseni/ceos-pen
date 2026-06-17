@@ -714,6 +714,19 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
         .eq("id", selectedCta.id);
     }
 
+    // Persist every hook brainstormed for this draft.
+    // Mark the first one as "was_selected" — the body prompt instructs Claude
+    // to "pick the strongest one"; we can refine this later with a dedicated picker.
+    if (hookOptions.length > 0) {
+      const hookRows = hookOptions.map((h, i) => ({
+        post_id: newPost.id,
+        shape: h.shape ?? "unknown",
+        text: h.text,
+        was_selected: i === 0,
+      }));
+      await supabase.from("hook_variants").insert(hookRows);
+    }
+
     await supabase.from("agent_log").insert({
       action: "draft_generated",
       api_cost_usd: parseFloat(apiCost.toFixed(6)),

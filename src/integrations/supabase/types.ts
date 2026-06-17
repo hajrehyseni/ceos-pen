@@ -110,6 +110,41 @@ export type Database = {
         }
         Relationships: []
       }
+      hook_variants: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string | null
+          shape: string
+          text: string
+          was_selected: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id?: string | null
+          shape: string
+          text: string
+          was_selected?: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string | null
+          shape?: string
+          text?: string
+          was_selected?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hook_variants_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       news_items: {
         Row: {
           collected_at: string
@@ -211,6 +246,7 @@ export type Database = {
           published_at: string | null
           rejected_at: string | null
           rejection_reason: string | null
+          repurposed_from_post_id: string | null
           score_breakdown: Json | null
           source_material: Json | null
           status: string
@@ -236,6 +272,7 @@ export type Database = {
           published_at?: string | null
           rejected_at?: string | null
           rejection_reason?: string | null
+          repurposed_from_post_id?: string | null
           score_breakdown?: Json | null
           source_material?: Json | null
           status?: string
@@ -261,6 +298,7 @@ export type Database = {
           published_at?: string | null
           rejected_at?: string | null
           rejection_reason?: string | null
+          repurposed_from_post_id?: string | null
           score_breakdown?: Json | null
           source_material?: Json | null
           status?: string
@@ -277,6 +315,13 @@ export type Database = {
             columns: ["cta_id"]
             isOneToOne: false
             referencedRelation: "cta_library"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_repurposed_from_post_id_fkey"
+            columns: ["repurposed_from_post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
             referencedColumns: ["id"]
           },
         ]
@@ -304,30 +349,47 @@ export type Database = {
       }
       voice_samples: {
         Row: {
+          auto_harvested: boolean
           content: string | null
           created_at: string
           id: string
           notes: string | null
           performance_rating: number | null
           source: string | null
+          source_post_id: string | null
+          style_tags: string[]
         }
         Insert: {
+          auto_harvested?: boolean
           content?: string | null
           created_at?: string
           id?: string
           notes?: string | null
           performance_rating?: number | null
           source?: string | null
+          source_post_id?: string | null
+          style_tags?: string[]
         }
         Update: {
+          auto_harvested?: boolean
           content?: string | null
           created_at?: string
           id?: string
           notes?: string | null
           performance_rating?: number | null
           source?: string | null
+          source_post_id?: string | null
+          style_tags?: string[]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "voice_samples_source_post_id_fkey"
+            columns: ["source_post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
