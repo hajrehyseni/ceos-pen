@@ -12,9 +12,7 @@ import { CostStrip } from "@/components/mobile/CostStrip";
 import { HeroDraftCard } from "@/components/mobile/HeroDraftCard";
 import { CompactNewsList } from "@/components/mobile/CompactNewsList";
 import { AgentStatusFooter } from "@/components/mobile/AgentStatusFooter";
-import { ReplyAssistant } from "@/components/visual-studio/ReplyAssistant";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { MessageSquare } from "lucide-react";
+import { ReplyPill } from "@/components/mobile/ReplyPill";
 
 type Tab = MobileTab | "settings";
 
@@ -33,7 +31,6 @@ export default function Index() {
   const [metrics, setMetrics] = useState<PostMetrics[]>([]);
   const [agentLogs, setAgentLogs] = useState<AgentLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [replyOpen, setReplyOpen] = useState(false);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
