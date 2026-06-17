@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { sanitizeDraftContent } from "../_shared/content-sanitize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -105,9 +106,9 @@ serve(async (req) => {
     if (tweak === "add_lead_magnet_first_comment") {
       const m = r.text.match(/<<<FIRST_COMMENT>>>([\s\S]*?)<<<END>>>/);
       const comment = (m?.[1] ?? r.text).trim();
-      updates.first_comment_text = comment;
+      updates.first_comment_text = sanitizeDraftContent(comment).text;
     } else {
-      updates.content = r.text.trim();
+      updates.content = sanitizeDraftContent(r.text.trim()).text;
     }
 
     const { error: updErr } = await supabase.from("posts").update(updates).eq("id", post_id);
