@@ -687,6 +687,13 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
       }
     }
 
+    // STAGE 6 — Final pre-save sanitiser: strip em-dashes, markdown bold, hashtags, blockquotes
+    const sanitiseResult = sanitizeDraftContent(postContent);
+    postContent = sanitiseResult.text;
+    // Recompute voice score post-sanitise so diagnostics reflect what's actually saved
+    forbiddenHits = findForbiddenHits(postContent, forbiddenList);
+    voice = computeVoiceScore(postContent, forbiddenHits);
+
     // Final engagement gate: must pass verifier AND voice score must be at least 6
     const engagement = (verifier.verdict === "pass" && voice.score >= 6)
       ? engagementFromScore(score)
@@ -745,6 +752,7 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
       hooks_considered: hookOptions,
       winners_injected: winners.length,
       scorer_error: score.error ?? null,
+      sanitiser: sanitiseResult.diagnostics,
     };
 
     const { data: newPost, error: postError } = await supabase
