@@ -36,13 +36,10 @@ export function HeaderBar({ weeklyCount, onSettingsClick, onDataRefresh }: Heade
     <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-xl">
       <div className="max-w-screen-sm mx-auto px-3 h-[52px] flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <h1 className="text-base font-bold text-foreground tracking-tight">
+          <h1 className="text-base font-bold text-foreground tracking-tight whitespace-nowrap">
             CEO <span className="text-primary">Pen</span>
           </h1>
-          <span className="text-[11px] text-muted-foreground truncate hidden xs:inline">·</span>
-          <span className="text-[11px] text-muted-foreground truncate">{shortDateStr}</span>
-          <span className="text-[11px] text-muted-foreground">·</span>
-          <span className={`text-[11px] text-${pillar.color} font-medium truncate`}>{pillar.label}</span>
+          <span className={`text-[11px] text-${pillar.color} font-medium truncate`}>· {pillar.label}</span>
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
