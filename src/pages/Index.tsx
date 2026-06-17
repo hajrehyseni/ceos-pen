@@ -56,6 +56,10 @@ export default function Index() {
     return () => clearInterval(interval);
   }, [authenticated, fetchData]);
 
+  if (!authChecked) {
+    return <div className="min-h-screen bg-background" />;
+  }
+
   if (!authenticated) {
     return <PasswordGate onAuthenticated={() => setAuthenticated(true)} />;
   }
