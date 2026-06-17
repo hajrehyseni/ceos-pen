@@ -118,6 +118,8 @@ export function InfographicPreview({ postId }: { postId: string }) {
         </div>
       )}
 
+      <QualityBadge quality={p?.quality} />
+
       <div className="flex flex-wrap gap-2 pt-1">
         <Button size="sm" variant="outline" onClick={exportPng} disabled={exporting}>
           {exporting ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Download className="w-3.5 h-3.5 mr-1" />}

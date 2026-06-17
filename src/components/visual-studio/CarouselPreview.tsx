@@ -179,6 +179,8 @@ export function CarouselPreview({ postId }: { postId: string }) {
         </div>
       )}
 
+      <QualityBadge quality={payload?.quality} />
+
       <div className="flex flex-wrap gap-2 pt-1">
         <Button size="sm" variant="outline" onClick={exportPdf} disabled={exporting !== null}>
           {exporting === "pdf" ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Download className="w-3.5 h-3.5 mr-1" />}

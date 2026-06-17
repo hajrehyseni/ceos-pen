@@ -59,6 +59,8 @@ export function PollPreview({ postId }: { postId: string }) {
       <Block label="Reply strategy" value={p?.reply_strategy} onCopy={(v) => cp("Strategy", v)} />
       {p?.cta && <Block label="Lead-magnet CTA" value={p.cta} onCopy={(v) => cp("CTA", v)} />}
 
+      <QualityBadge quality={p?.quality} />
+
       <div className="flex flex-wrap gap-2 pt-1">
         <Button size="sm" variant="outline" onClick={() => cp("Poll caption", p?.caption)}>
           <Copy className="w-3.5 h-3.5 mr-1" /> Copy caption
