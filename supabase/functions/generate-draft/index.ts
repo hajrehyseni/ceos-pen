@@ -181,6 +181,95 @@ function stripJsonFence(raw: string): string {
   return raw.replace(/```json?\n?/g, "").replace(/```\n?/g, "").trim();
 }
 
+// ===== CTA picker =====
+type CtaRow = {
+  id: string;
+  copy: string;
+  cta_type: string;
+  weight: number;
+  enabled: boolean;
+};
+
+function pickCta(ctas: CtaRow[], hardRatio: number): CtaRow | null {
+  const enabled = ctas.filter((c) => c.enabled);
+  if (enabled.length === 0) return null;
+  const wantHard = Math.random() < hardRatio;
+  const pool = enabled.filter((c) => c.cta_type === (wantHard ? "hard" : "soft"));
+  const finalPool = pool.length > 0 ? pool : enabled;
+  const totalWeight = finalPool.reduce((s, c) => s + Math.max(c.weight, 0.01), 0);
+  let r = Math.random() * totalWeight;
+  for (const c of finalPool) {
+    r -= Math.max(c.weight, 0.01);
+    if (r <= 0) return c;
+  }
+  return finalPool[finalPool.length - 1];
+}
+
+// ===== Voice fingerprint =====
+const DEFAULT_FORBIDDEN = [
+  "in today's fast-paced", "leverage", "unlock", "game-changer", "game changer",
+  "revolutionise", "revolutionize", "harness the power", "deep dive",
+  "at the end of the day", "truly", "simply put", "let me tell you",
+  "ladies and gentlemen", "in today's world", "in today's digital", "moreover,",
+  "furthermore,", "additionally,", "in conclusion", "it's important to note",
+  "in this article", "in this post",
+];
+
+function parseForbiddenList(raw: string): string[] {
+  return (raw || "")
+    .split(/[;,\n]+/)
+    .map((p) => p.trim().toLowerCase())
+    .filter((p) => p.length > 1);
+}
+
+function findForbiddenHits(text: string, list: string[]): string[] {
+  const lower = text.toLowerCase();
+  const hits: string[] = [];
+  for (const p of list) {
+    if (p.length < 2) continue;
+    if (lower.includes(p)) hits.push(p);
+  }
+  return Array.from(new Set(hits));
+}
+
+/** 0-10 score of how Hajre-ish the draft sounds. Deterministic. */
+function computeVoiceScore(text: string, forbiddenHits: string[]): {
+  score: number;
+  diagnostics: Record<string, unknown>;
+} {
+  let score = 10;
+  score -= Math.min(forbiddenHits.length * 2, 6);
+
+  const sentences = text.split(/[.!?]+\s/).map((s) => s.trim()).filter(Boolean);
+  const words = text.split(/\s+/).filter(Boolean);
+  const avgSentenceLen = sentences.length > 0 ? words.length / sentences.length : 0;
+  if (avgSentenceLen > 25) score -= 1;
+  if (avgSentenceLen > 32) score -= 1;
+
+  const contractionRegex = /\b(I'm|don't|I've|you're|can't|won't|didn't|it's|that's|what's|isn't|aren't|we're|they're|wouldn't|couldn't|shouldn't|here's|there's)\b/gi;
+  const contractionCount = (text.match(contractionRegex) || []).length;
+  if (contractionCount === 0) score -= 2;
+
+  const firstPersonCount = (text.match(/\b(I|me|my|mine|I'm|I've)\b/g) || []).length;
+  if (firstPersonCount === 0) score -= 1;
+
+  if (text.includes("—")) score -= 1;
+  if (/[#]\w/.test(text)) score -= 1; // hashtags
+
+  return {
+    score: Math.max(0, Math.min(10, score)),
+    diagnostics: {
+      avg_sentence_len: Math.round(avgSentenceLen * 10) / 10,
+      contraction_count: contractionCount,
+      first_person_count: firstPersonCount,
+      forbidden_hit_count: forbiddenHits.length,
+      forbidden_hits: forbiddenHits,
+      has_em_dash: text.includes("—"),
+      has_hashtag: /[#]\w/.test(text),
+    },
+  };
+}
+
 async function brainstormHooks(
   apiKey: string,
   userMessage: string,
