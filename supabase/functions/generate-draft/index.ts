@@ -695,8 +695,12 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
         source_material: sourceMaterial,
         verification_status: verifier.verdict === "pass" ? "passed" : "failed",
         verification_notes: verificationNotes,
+        verification_evidence: verificationEvidence,
         virality_score: score.overall,
+        voice_score: voice.score,
         score_breakdown: scoreBreakdown,
+        cta_id: selectedCta?.id ?? null,
+        first_comment_text: selectedCta && selectedCta.cta_type === "soft" ? selectedCta.copy : null,
       })
       .select("id").single();
 
