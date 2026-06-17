@@ -13,6 +13,7 @@ import { HeroDraftCard } from "@/components/mobile/HeroDraftCard";
 import { CompactNewsList } from "@/components/mobile/CompactNewsList";
 import { AgentStatusFooter } from "@/components/mobile/AgentStatusFooter";
 import { ReplyPill } from "@/components/mobile/ReplyPill";
+import { PILLARS, getTodayPillar } from "@/lib/constants";
 
 type Tab = MobileTab | "settings";
 
@@ -21,6 +22,15 @@ function scoreRank(p: Post): number {
   const eng = p.engagement_estimate === "high" ? 2 : p.engagement_estimate === "medium" ? 1 : 0;
   const verified = p.verification_status === "passed" ? 1 : 0;
   return base + eng + verified;
+}
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 5) return "Late one";
+  if (h < 12) return "Morning";
+  if (h < 17) return "Afternoon";
+  if (h < 22) return "Evening";
+  return "Late one";
 }
 
 export default function Index() {
@@ -81,15 +91,21 @@ export default function Index() {
     .filter((p) => p.status === "draft" || p.status === "approved")
     .sort((a, b) => scoreRank(b) - scoreRank(a));
 
+  const pillar = PILLARS[getTodayPillar()];
+  const dateLabel = now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
+
   return (
-    <div className="min-h-screen bg-background pb-[calc(env(safe-area-inset-bottom)+72px)]">
+    <div
+      className="min-h-screen bg-background"
+      style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 76px)" }}
+    >
       <HeaderBar
         weeklyCount={weeklyCount}
         onSettingsClick={() => setActiveTab("settings")}
         onDataRefresh={fetchData}
       />
 
-      <main className="max-w-screen-sm mx-auto px-4 py-4 space-y-4">
+      <main className="max-w-screen-sm mx-auto px-4 pt-4 pb-2 space-y-5">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -97,12 +113,25 @@ export default function Index() {
         ) : activeTab === "settings" ? (
           <SettingsPage onBack={() => setActiveTab("today")} />
         ) : activeTab === "today" ? (
-          <>
-            <CostStrip agentLogs={agentLogs} />
+          <div className="space-y-5 animate-fade-in-up">
+            {/* Greeting */}
+            <header className="px-1">
+              <h1 className="font-signature text-[34px] leading-none text-foreground">
+                {greeting()}, <span className="text-primary">Hajrë.</span>
+              </h1>
+              <p className="mt-1.5 text-[12px] text-muted-foreground">
+                {dateLabel} · <span className="text-foreground/80">{pillar.label}</span>
+                {queuedDrafts.length > 0 && (
+                  <> · <span className="text-foreground/80 num">{queuedDrafts.length}</span> drafts ready</>
+                )}
+              </p>
+            </header>
+
             <HeroDraftCard drafts={queuedDrafts} onUpdate={fetchData} />
             <CompactNewsList />
+            <CostStrip agentLogs={agentLogs} />
             <AgentStatusFooter agentLogs={agentLogs} />
-          </>
+          </div>
         ) : activeTab === "drafts" ? (
           <DraftQueue posts={posts} onUpdate={fetchData} />
         ) : activeTab === "published" ? (

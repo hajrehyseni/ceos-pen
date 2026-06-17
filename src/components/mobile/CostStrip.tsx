@@ -40,11 +40,17 @@ export function CostStrip({ agentLogs }: Props) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button className="w-full text-left active:scale-[0.98] transition-transform">
-          <div className="card-surface px-3 py-2.5 grid grid-cols-3 gap-2">
+        <button className="w-full text-left tap-press" aria-label="View spend breakdown">
+          <div
+            className="h-[60px] rounded-full grid grid-cols-3 items-center px-1"
+            style={{
+              background: "hsl(var(--surface-1))",
+              border: "1px solid hsl(var(--hairline) / 0.06)",
+            }}
+          >
             <Cell label="Today" value={fmt(today)} />
-            <Cell label="Week" value={fmt(week)} accent />
-            <Cell label="Month" value={fmt(month)} />
+            <Cell label="Week" value={fmt(week)} accent divided />
+            <Cell label="Month" value={fmt(month)} divided />
           </div>
         </button>
       </SheetTrigger>
@@ -58,12 +64,12 @@ export function CostStrip({ agentLogs }: Props) {
             <Stat label="This week" value={fmt(week)} sub={prevWeek > 0 ? `vs ${fmt(prevWeek)} last` : undefined} />
             <Stat label="This month" value={fmt(month)} />
           </div>
-          <div className="pt-3 border-t border-border space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">This week by action</p>
+          <div className="pt-3 hairline-t space-y-2">
+            <p className="label-eyebrow">This week by action</p>
             {Object.entries(byAction).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => (
               <div key={k} className="flex items-center justify-between text-sm">
                 <span className="text-foreground">{k.replace(/_/g, " ")}</span>
-                <span className="font-medium tabular-nums">{fmt(v)}</span>
+                <span className="font-medium num">{fmt(v)}</span>
               </div>
             ))}
             {Object.keys(byAction).length === 0 && (
@@ -76,11 +82,13 @@ export function CostStrip({ agentLogs }: Props) {
   );
 }
 
-function Cell({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function Cell({ label, value, accent, divided }: { label: string; value: string; accent?: boolean; divided?: boolean }) {
   return (
-    <div className="flex flex-col items-center justify-center text-center">
-      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
-      <span className={`text-base font-bold tabular-nums leading-tight ${accent ? "text-primary" : "text-foreground"}`}>{value}</span>
+    <div
+      className={`flex flex-col items-center justify-center text-center py-2 ${divided ? "border-l border-[hsl(var(--hairline)/0.08)]" : ""}`}
+    >
+      <span className="label-eyebrow">{label}</span>
+      <span className={`text-[17px] font-semibold num leading-tight mt-0.5 ${accent ? "text-primary" : "text-foreground"}`}>{value}</span>
     </div>
   );
 }
@@ -88,8 +96,8 @@ function Cell({ label, value, accent }: { label: string; value: string; accent?:
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="card-surface px-3 py-3 text-center">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="text-lg font-bold tabular-nums text-foreground">{value}</p>
+      <p className="label-eyebrow">{label}</p>
+      <p className="text-lg font-semibold num text-foreground mt-1">{value}</p>
       {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
     </div>
   );
