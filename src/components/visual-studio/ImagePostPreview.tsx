@@ -62,6 +62,8 @@ export function ImagePostPreview({ postId }: { postId: string }) {
         </div>
       )}
 
+      <QualityBadge quality={p?.quality} />
+
       <div className="flex gap-2 pt-1">
         <Button size="sm" variant="ghost" onClick={() => generate()} disabled={generating}>
           <RefreshCw className={`w-3.5 h-3.5 mr-1 ${generating ? "animate-spin" : ""}`} /> Regenerate
