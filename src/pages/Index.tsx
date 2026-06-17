@@ -105,7 +105,7 @@ export default function Index() {
         onDataRefresh={fetchData}
       />
 
-      <main className="max-w-screen-sm mx-auto px-4 pt-4 pb-2 space-y-5">
+      <main className="max-w-screen-md mx-auto px-4 lg:px-6 pt-4 pb-2 space-y-5">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -116,8 +116,8 @@ export default function Index() {
           <div className="space-y-5 animate-fade-in-up">
             {/* Greeting */}
             <header className="px-1">
-              <h1 className="font-signature text-[34px] leading-none text-foreground">
-                {greeting()}, <span className="text-primary">Hajrë.</span>
+              <h1 className="font-serif text-[30px] leading-[1.1] text-foreground tracking-tight">
+                {greeting()}, <span className="italic">Hajrë.</span>
               </h1>
               <p className="mt-1.5 text-[12px] text-muted-foreground">
                 {dateLabel} · <span className="text-foreground/80">{pillar.label}</span>
@@ -127,10 +127,23 @@ export default function Index() {
               </p>
             </header>
 
-            <HeroDraftCard drafts={queuedDrafts} onUpdate={fetchData} />
-            <CompactNewsList />
-            <CostStrip agentLogs={agentLogs} />
-            <AgentStatusFooter agentLogs={agentLogs} />
+            {/* Desktop: 2-column editorial desk. Mobile: stacked. */}
+            <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6 space-y-5 lg:space-y-0">
+              <div className="space-y-5">
+                <HeroDraftCard drafts={queuedDrafts} onUpdate={fetchData} />
+                <CompactNewsList />
+              </div>
+              <aside className="hidden lg:block space-y-5">
+                <CostStrip agentLogs={agentLogs} />
+                <AgentStatusFooter agentLogs={agentLogs} />
+              </aside>
+            </div>
+
+            {/* Mobile-only footer items */}
+            <div className="lg:hidden space-y-5">
+              <CostStrip agentLogs={agentLogs} />
+              <AgentStatusFooter agentLogs={agentLogs} />
+            </div>
           </div>
         ) : activeTab === "drafts" ? (
           <DraftQueue posts={posts} onUpdate={fetchData} />
