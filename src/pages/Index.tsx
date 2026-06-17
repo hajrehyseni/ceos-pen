@@ -97,7 +97,7 @@ export default function Index() {
 
       {activeTab === "settings" ? (
         <div className="max-w-screen-2xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
-          <SettingsPage onBack={() => setActiveTab("drafts")} />
+          <SettingsPage onBack={() => setActiveTab("today")} />
         </div>
       ) : (
         <>
