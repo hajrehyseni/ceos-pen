@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { sanitizeDraftContent } from "../_shared/content-sanitize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -64,7 +65,9 @@ const HOOK_BRAINSTORM_PROMPT = `You generate LinkedIn HOOKS only — the first 1
 2. CONFESSION — admit something most people in your position won't.
 3. SCENE — a specific moment, dialogue, or sensory detail.
 
-Each hook: 1-2 sentences, max 30 words, no emoji, no hashtags, British English. Grounded in the supplied news items where possible (no fabrication).
+Each hook: 1-2 sentences, max 30 words, no emoji, no hashtags, no em dashes, British English. Grounded in the supplied news items where possible (no fabrication).
+
+OPENER DIVERSITY (critical): do NOT start any hook with these tired verbs/phrasings: "I watched", "I've noticed", "I'm watching", "I've been thinking", "Here's what", "Most people", "Everyone's", "Let me tell you". You will be given the openers of the last few posts — your three new hooks must each start with a different verb, noun, or rhetorical move from each other AND from the recent ones.
 
 Return ONLY valid JSON, no markdown:
 {
@@ -95,7 +98,7 @@ Rate each axis 0-10:
 - emotional_pull: tension, surprise, recognition, or discomfort?
 - shareability: would a thoughtful operator quote-share this with a comment?
 - humour_fit: does any wit feel natural (warm, British, founder-down-the-pub), protect credibility, and make the post more memorable? 10 = lands perfectly. 7 = one good line, doesn't try too hard. 4 = forced, cringe, or American hype. 10 is also valid for posts with NO humour where humour would have been wrong — judge on fit, not presence.
-- lead_magnet_fit: if a CTA / URL to https://build.londonra.com is present, is it natural, in-voice, a clear next step, not salesy, not "click here"? 10 = obvious and helpful. 5 = present but clunky. If no CTA is in the body (soft-CTA mode), score 10 by default — the link will be posted as the first comment.
+- lead_magnet_fit: You will be told the CTA_MODE for this draft. If CTA_MODE is "soft", the post body MUST NOT contain a URL — the link will be posted as an auto first-comment. In soft mode, score 10 by default; only deduct if the body weirdly tries to plug something. If CTA_MODE is "hard", a CTA + URL to https://build.londonra.com should appear in the body: score 10 if it's natural, in-voice, and a clear next step; 5 if present but clunky; 3 if salesy or "click-here".
 
 Usefulness booleans:
 - actionable_takeaway, contrarian_angle, data_or_example_led.
@@ -288,9 +291,13 @@ function computeVoiceScore(text: string, forbiddenHits: string[]): {
 async function brainstormHooks(
   apiKey: string,
   userMessage: string,
+  recentOpeners: string[],
 ): Promise<{ hooks: Array<{ shape: string; text: string }>; inputTokens: number; outputTokens: number }> {
   try {
-    const r = await callClaude(apiKey, CLAUDE_GENERATION_MODEL, HOOK_BRAINSTORM_PROMPT, userMessage, 600);
+    const openerBlock = recentOpeners.length > 0
+      ? `\n\nRECENT POST OPENERS (do NOT echo their first 4 words or verb):\n${recentOpeners.map((o, i) => `${i + 1}. ${o}`).join("\n")}`
+      : "";
+    const r = await callClaude(apiKey, CLAUDE_GENERATION_MODEL, HOOK_BRAINSTORM_PROMPT, userMessage + openerBlock, 600);
     const parsed = JSON.parse(stripJsonFence(r.text));
     const hooks = Array.isArray(parsed.hooks) ? parsed.hooks.filter((h: any) => h?.text) : [];
     return { hooks, inputTokens: r.inputTokens, outputTokens: r.outputTokens };
@@ -323,7 +330,7 @@ async function verifyDraft(
   }
 }
 
-async function scoreDraft(draft: string, apiKey: string): Promise<ScoreResult> {
+async function scoreDraft(draft: string, apiKey: string, ctaMode: "hard" | "soft"): Promise<ScoreResult> {
   const empty: ScoreResult = {
     hook_strength: 0, specificity: 0, emotional_pull: 0, shareability: 0,
     humour_fit: 0, lead_magnet_fit: 0,
@@ -335,7 +342,7 @@ async function scoreDraft(draft: string, apiKey: string): Promise<ScoreResult> {
       apiKey,
       CLAUDE_VERIFIER_MODEL,
       SCORER_SYSTEM_PROMPT,
-      `DRAFT POST:\n"""${draft}"""\n\nScore the draft. Return JSON only.`,
+      `CTA_MODE: ${ctaMode}\n\nDRAFT POST:\n"""${draft}"""\n\nScore the draft. Return JSON only.`,
       800,
     );
     const parsed = JSON.parse(stripJsonFence(r.text));
@@ -539,10 +546,21 @@ ${winnersBlock}
 PREVIOUSLY REJECTED (avoid these patterns):
 ${rejectSection}`;
 
+    // Recent openers (last 5 drafts) — feed into hook brainstorm for diversity
+    const { data: recentPosts } = await supabase
+      .from("posts").select("content")
+      .order("created_at", { ascending: false }).limit(5);
+    const recentOpeners = (recentPosts ?? [])
+      .map((p: any) => (p.content ?? "").split(/\n/)[0].trim().slice(0, 120))
+      .filter((s: string) => s.length > 0);
+
+    const ctaMode: "hard" | "soft" = selectedCta?.cta_type === "hard" ? "hard" : "soft";
+
     // STAGE 1 — Hook brainstorm
     const hookBrainstorm = await brainstormHooks(
       CLAUDE_API_KEY,
       `${contextBlock}\n\nGenerate 3 distinct hooks for a ${pillarLabel} post.`,
+      recentOpeners,
     );
     const hookOptions = hookBrainstorm.hooks;
     const hookList = hookOptions.length > 0
@@ -593,7 +611,7 @@ Rewrite the post. Remove or rephrase every unsupported claim. Do not invent comp
     }
 
     // STAGE 4 — Virality + usefulness scorer
-    let score = await scoreDraft(postContent, CLAUDE_API_KEY);
+    let score = await scoreDraft(postContent, CLAUDE_API_KEY, ctaMode);
     let scorerInputTokens = score.inputTokens;
     let scorerOutputTokens = score.outputTokens;
     let scorerRetried = false;
@@ -620,7 +638,7 @@ Keep zero-fabrication rules. Output ONLY the post text.`;
         postContent = candidate;
         verifier = reverify;
         verifierRetried = true;
-        const rescore = await scoreDraft(postContent, CLAUDE_API_KEY);
+        const rescore = await scoreDraft(postContent, CLAUDE_API_KEY, ctaMode);
         scorerInputTokens += rescore.inputTokens;
         scorerOutputTokens += rescore.outputTokens;
         if (rescore.overall >= score.overall) score = rescore;
@@ -668,6 +686,13 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
         console.warn("Voice rewrite failed re-verification — keeping original draft.");
       }
     }
+
+    // STAGE 6 — Final pre-save sanitiser: strip em-dashes, markdown bold, hashtags, blockquotes
+    const sanitiseResult = sanitizeDraftContent(postContent);
+    postContent = sanitiseResult.text;
+    // Recompute voice score post-sanitise so diagnostics reflect what's actually saved
+    forbiddenHits = findForbiddenHits(postContent, forbiddenList);
+    voice = computeVoiceScore(postContent, forbiddenHits);
 
     // Final engagement gate: must pass verifier AND voice score must be at least 6
     const engagement = (verifier.verdict === "pass" && voice.score >= 6)
@@ -727,6 +752,7 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
       hooks_considered: hookOptions,
       winners_injected: winners.length,
       scorer_error: score.error ?? null,
+      sanitiser: sanitiseResult.diagnostics,
     };
 
     const { data: newPost, error: postError } = await supabase
