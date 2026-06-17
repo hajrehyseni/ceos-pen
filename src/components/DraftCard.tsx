@@ -32,6 +32,34 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [scoreOpen, setScoreOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [tweaking, setTweaking] = useState<string | null>(null);
+
+  const TWEAKS: Array<{ key: string; label: string }> = [
+    { key: "add_british_humour", label: "Add British humour" },
+    { key: "make_more_fun", label: "Make it more fun" },
+    { key: "less_corporate", label: "Make it less corporate" },
+    { key: "sound_more_like_hajre", label: "Sound more like Hajrë" },
+    { key: "add_natural_lead_magnet", label: "Add natural lead-magnet CTA" },
+    { key: "add_softer_lead_magnet", label: "Add softer lead-magnet CTA" },
+    { key: "less_salesy_cta", label: "Make CTA less salesy" },
+    { key: "add_lead_magnet_first_comment", label: "Set lead-magnet as first comment" },
+  ];
+
+  const handleTweak = async (key: string, label: string) => {
+    setTweaking(key);
+    try {
+      const { data, error } = await supabase.functions.invoke("tone-tune", {
+        body: { post_id: post.id, tweak: key },
+      });
+      if (error) throw error;
+      if (data?.status === "error") throw new Error(data.error);
+      toast({ title: label, description: "Draft updated." });
+      onUpdate();
+    } catch (e: any) {
+      toast({ title: "Tweak failed", description: e.message, variant: "destructive" });
+    }
+    setTweaking(null);
+  };
 
   const pillar = PILLARS[post.pillar as PillarKey];
   const pillarClasses = pillarColorMap[post.pillar] || "";
