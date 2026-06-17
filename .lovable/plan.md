@@ -1,91 +1,157 @@
+## CEO Pen — UX, Branding, Scorecard & Layout Overhaul
 
-# CEO Pen — Mobile Refinement & Branding
+A focused pass across backend, mobile, desktop, branding, AI News, CTA UX and Visual Studio. Scope is large but each section is concrete.
 
-A focused pass on identity + one-thumb UX. No backend changes. Lead-magnet guarantee already shipped — untouched.
+---
 
-## 1. Brand identity
+### 1. Scorecard URL guarantee (backend + UI + publish)
 
-**Wordmark logo (SVG, hand-built, not generated):**
-- New `src/components/brand/CeoPenMark.tsx` — inline SVG: "CEO Pen" set in a signature-style script (Caveat Brush / Reenie Beanie weight, hand-tuned path) with a subtle nib underline tapering off the "n". Two variants:
-  - `<Wordmark/>` — full signature for splash/login/about
-  - `<Glyph/>` — just the underlined "cp" ligature for header & favicon
-- Color: `currentColor` so it inherits theme.
-- New favicon + apple-touch-icon generated from the glyph (SVG → `public/favicon.svg`, replace `index.html` link).
-- Theme color meta + manifest updated to new indigo.
+**Constant + helper** (`supabase/functions/_shared/scorecard.ts` — new):
+```ts
+export const SCORECARD_URL = "https://build.londonra.com";
+export const DEFAULT_SOFT_CTA = `If you want to see how ready your business actually is for AI, the Build to Certify scorecard takes 4 minutes: ${SCORECARD_URL}`;
+export const DEFAULT_HARD_CTA = DEFAULT_SOFT_CTA;
+export function normaliseScorecardUrl(text?: string | null): string {
+  if (!text) return text ?? "";
+  // strip protocol-less first to avoid double https://
+  return text
+    .replace(/https?:\/\/build\.londonra\.com/gi, SCORECARD_URL)
+    .replace(/(?<!https?:\/\/)build\.londonra\.com/gi, SCORECARD_URL);
+}
+export function ensureScorecard(body: string, firstComment: string | null, ctaMode: "soft"|"hard") {
+  body = normaliseScorecardUrl(body);
+  firstComment = normaliseScorecardUrl(firstComment);
+  const inBody = body.includes(SCORECARD_URL);
+  const inComment = !!firstComment && firstComment.includes(SCORECARD_URL);
+  if (!inBody && !inComment) {
+    if (ctaMode === "hard") body = `${body.trim()}\n\n${DEFAULT_HARD_CTA}`;
+    else firstComment = DEFAULT_SOFT_CTA;
+  }
+  return { body, firstComment };
+}
+```
 
-**Typography pairing** (via `@fontsource`, per platform rules):
-- Display / wordmark accents: **Caveat** (signature feel, used sparingly — only logo + section greetings like "Today,")
-- UI sans: **Geist** (tighter, more refined than current Inter) — body, buttons, numerals
-- Numerals: Geist tabular-nums for cost strip
+**Apply in `generate-draft/index.ts`** after model output, before insert.
+**Apply in `auto-publish/index.ts`** and `publish-to-linkedin/index.ts` before push — final safety net.
 
-## 2. Tightened Indigo Command theme
+**Client mirror** in `src/lib/scorecard.ts`: same `SCORECARD_URL`, `normaliseScorecardUrl`, `detectScorecard(post) → { location: "body"|"first_comment"|"missing" }`.
 
-Refine `src/index.css` tokens (HSL only, no hardcoded colors in components):
-- `--background` deepened to `#0a0a1a`
-- New `--surface-1` (#10102a) and `--surface-2` (#16163a) for card layering instead of flat cards
-- `--primary` locked to indigo `#4f46e5`, `--primary-glow` for soft gradients
-- New `--hairline` (1px white/6%) replaces heavy borders
-- `--gradient-hero` (indigo → navy radial) behind hero card only
-- `--shadow-card` softer, `--shadow-pressed` for tap feedback
-- Type scale tightened: 12 / 14 / 16 / 20 / 28 / 34, line-heights 1.25 / 1.4
-- 4pt spacing grid enforced; safe-area insets respected (`env(safe-area-inset-bottom)`)
+**UI badge**: `ScorecardBadge` component shows green pill with location, or amber "Scorecard missing" + "Attach scorecard" button that sets `first_comment_text = DEFAULT_SOFT_CTA` via supabase update.
 
-## 3. One-thumb mobile UX overhaul
+**Verification**: after edits, generate 10 drafts via `supabase--read-query` SELECT on most recent 10 and assert presence; report counts.
 
-**Hero Draft Card** (`HeroDraftCard.tsx`):
-- Full-width swipe with velocity-based threshold (not distance only). Right = approve, Left = reject, Down = snooze to tomorrow.
-- Color-coded swipe trail (emerald right, rose left, amber down) revealing icon + label as you drag.
-- Long-press anywhere on card = open editor (replaces "Open" button).
-- Bottom action tray reduced to 2 large 56px buttons: **Reject · Approve**. Edit moves to long-press, Publish moves into Approve confirmation sheet.
-- Haptic-style spring on action (scale 0.97 → 1, 200ms).
+---
 
-**Cost strip** (`CostStrip.tsx`):
-- Becomes a single 64px pill with 3 segments separated by hairlines. Tap anywhere → bottom sheet with detail. Removes the "card" feel.
+### 2. Layout: split mobile and desktop
 
-**Compact news** (`CompactNewsList.tsx`):
-- Each item full-width tappable row with chevron; horizontal swipe-left reveals "Use as draft seed" action.
+Add `useIsDesktop()` check at `Index.tsx` and branch:
 
-**Bottom tab bar** (`BottomTabBar.tsx`):
-- Reduced to 4 tabs, 64px tall, safe-area aware. Active state = indigo glow under icon (not full pill). Center "+" floating action button (56px) for "New draft" — thumb-zone primary action.
+```text
+Mobile (<768px)              Desktop (>=1024px)
+────────────────────         ──────────────────────────────
+Header                       Left col (300px)
+Greeting                     ├─ Draft queue list
+Hero draft (compact)         └─ AI News (compact)
+[Reject][Open][Approve]      Main col (flex)
+AI News (3)                  ├─ Selected draft full
+Bottom tabs                  ├─ First comment block
+                             ├─ Scorecard panel
+                             └─ Action bar
+                             Right col (320px)
+                             ├─ Visual Studio tabs
+                             ├─ Scores
+                             └─ Agent status
+```
 
-**Reply pill** (`ReplyPill.tsx`):
-- Moves from floating-above-tabs to a slot inside the FAB long-press menu (cleaner, fewer floating things).
+Hero card strips: `1/105`, swipe text, big metadata. Keep pill, verified, hook (first 2 lines), scorecard badge, 3 buttons.
 
-**Pull-to-refresh** on Today view → re-runs research agent.
+`OpenDraftSheet.tsx` for mobile full-screen, reused as right-panel content on desktop. New `DesktopLayout.tsx` orchestrates 3-column grid.
 
-**Page transitions**: framer-motion shared layout, 200ms ease-out for view switches.
+---
 
-## 4. Section greeting + density
+### 3. Branding refinement
 
-`Index.tsx`:
-- Replace generic "Today" header with time-aware greeting in Caveat: "Morning, Hajrë." / "Evening, Hajrë." — 28px, single line, sets editorial tone.
-- Beneath: tiny meta line (date · pillar · drafts-ready count) in 12px muted.
-- Section labels reduced to 11px uppercase tracked hairlines instead of bold headings.
+- Drop Caveat entirely (greeting in Fraunces 28px ink).
+- Show 3 logo directions via design--create_directions? No — user said "show options before finalising". Use a small in-app `LogoPicker` is overkill; instead implement **Premium Wordmark** (Fraunces semibold, full-stop accent in Ink Indigo) as default, keep `CeoPenGlyph` as CP monogram for favicon/splash. Cursor variant available as optional `CeoPenCursor.tsx` for splash. State this in reply and let user request swap.
+- Theme tightening in `index.css`: bg `#0B0B0F`, surface `#15151B`, hairline `#222230`, single accent Ink Indigo `#6366F1`, success `#10B981`, danger `#EF4444`. Remove glows.
 
-## 5. Files
+---
 
-**New:**
-- `src/components/brand/CeoPenMark.tsx`
-- `src/components/brand/Glyph.tsx`
-- `public/favicon.svg` (replaces .ico reference)
+### 4. AI News editorial feed
 
-**Edited:**
-- `src/index.css` (token overhaul)
-- `tailwind.config.ts` (font families, spacing, shadows)
-- `src/main.tsx` (fontsource imports)
-- `index.html` (favicon, theme-color, apple-touch)
-- `src/components/HeaderBar.tsx` (use Glyph)
-- `src/components/mobile/HeroDraftCard.tsx` (gesture overhaul)
-- `src/components/mobile/CostStrip.tsx` (pill form)
-- `src/components/mobile/CompactNewsList.tsx` (row form + swipe action)
-- `src/components/mobile/BottomTabBar.tsx` (FAB + tighter)
-- `src/components/mobile/ReplyPill.tsx` (folded into FAB menu)
-- `src/pages/Index.tsx` (greeting, density)
+- Today: 3 items, `NewsRow` shows title (15px serif), one-line summary, source · credibility · share-worthiness chips.
+- Full sheet `NewsDetailSheet.tsx`: 10 items, each expandable to {why it matters, CEO angle, suggested hook, visual idea, scorecard angle, source link}. "Generate" menu → text / carousel / image / poll / infographic — all routed through existing generate functions with `seed_news_id` param so scorecard injection still runs.
 
-**Dependencies:** `@fontsource/caveat`, `@fontsource/geist-sans`.
+---
 
-## 6. Out of scope (won't touch)
+### 5. CTA panel inside Open modal
 
-- Backend / edge functions / scorecard logic (already correct)
-- Desktop layout (mobile-first pass only)
-- DB schema, auth, integrations
+`CtaPanel.tsx` shows: placement chip, current CTA text (truncated), quality auto-assessed (`tone-tune` heuristic or simple length/keyword check client-side first), buttons: Soften CTA, Move to first comment, Move to body. Soften calls `tone-tune` edge fn with prompt `soften this CTA`.
+
+---
+
+### 6. Visual Studio inside Open modal
+
+Replace `VisualStudio` dialog with inline `VisualStudioPanel` rendered inside `OpenDraftSheet`. Tabs: Carousel, Image, Infographic, Poll, Reply, Chart. Each empty state matches spec copy. Create / Preview / Copy / Export / Retry per asset; rely on existing `useVisualAsset` hook.
+
+---
+
+### 7. Microcopy
+
+Centralise in `src/lib/copy.ts`. Replace existing strings across HeroDraftCard, OpenDraftSheet, CompactNewsList, AgentStatusFooter, error toasters.
+
+---
+
+### 8. Verification (definition of done)
+
+1. Run `supabase--read-query` to confirm last 10 drafts have URL.
+2. Drive Playwright at 390×844 → screenshot Today.
+3. Playwright at 1440×900 → screenshot Desktop.
+4. Open one draft → screenshot Open modal with CTA panel + Visual Studio visible.
+5. Trigger `generate-draft` 10x via curl `supabase--curl_edge_functions`, requery, assert all 10 contain `https://build.londonra.com`.
+
+Report screenshots + counts before claiming done.
+
+---
+
+### Files
+
+**New**
+- `supabase/functions/_shared/scorecard.ts`
+- `src/lib/scorecard.ts` (replace existing)
+- `src/lib/copy.ts`
+- `src/components/ScorecardBadge.tsx`
+- `src/components/CtaPanel.tsx`
+- `src/components/OpenDraftSheet.tsx`
+- `src/components/VisualStudioPanel.tsx`
+- `src/components/DesktopLayout.tsx`
+- `src/components/mobile/NewsRow.tsx`
+- `src/components/NewsDetailSheet.tsx`
+- `src/components/brand/CeoPenWordmark.tsx`
+
+**Edit**
+- `supabase/functions/generate-draft/index.ts`
+- `supabase/functions/auto-publish/index.ts`
+- `supabase/functions/publish-to-linkedin/index.ts`
+- `src/pages/Index.tsx`
+- `src/components/HeaderBar.tsx`
+- `src/components/mobile/HeroDraftCard.tsx`
+- `src/components/mobile/CompactNewsList.tsx`
+- `src/components/mobile/BottomTabBar.tsx`
+- `src/components/visual-studio/VisualStudio.tsx` (thin re-export of panel)
+- `src/components/DraftCard.tsx`
+- `src/index.css`
+- `tailwind.config.ts`
+- `index.html`, `public/favicon.svg`
+
+**Remove**
+- `@fontsource/caveat` from `package.json` / `main.tsx`
+- `src/components/brand/CeoPenMark.tsx` (Caveat signature)
+
+---
+
+### Out of scope
+
+- No new database tables; existing `posts.first_comment_text` is sufficient.
+- No edge function `verify_jwt` changes.
+- No new secrets — `https://build.londonra.com` is hardcoded as a public URL.

@@ -15,7 +15,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ["'Geist Variable'", "Geist", "system-ui", "-apple-system", "sans-serif"],
-        signature: ["'Caveat'", "cursive"],
+        serif: ["'Fraunces Variable'", "'Fraunces'", "Georgia", "serif"],
       },
       colors: {
         border: "hsl(var(--border))",

@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Settings, Sparkles } from "lucide-react";
+import { Settings, Sparkles, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { CeoPenGlyph } from "@/components/brand/CeoPenGlyph";
+import { CeoPenWordmark } from "@/components/brand/CeoPenWordmark";
+import { COPY } from "@/lib/copy";
 
 interface HeaderBarProps {
   weeklyCount: number;
@@ -20,36 +21,37 @@ export function HeaderBar({ onSettingsClick, onDataRefresh }: HeaderBarProps) {
     try {
       const { data, error } = await supabase.functions.invoke("generate-draft");
       if (error) throw error;
-      toast({ title: "Draft generated", description: `Post ID: ${data?.post_id || "created"}` });
+      toast({ title: "New draft ready", description: `Post ID: ${data?.post_id || "created"}` });
       onDataRefresh();
     } catch (e: any) {
-      toast({ title: "Generation failed", description: e.message, variant: "destructive" });
+      toast({ title: COPY.errorGeneric, description: e.message, variant: "destructive" });
     }
     setGeneratingDraft(false);
   };
 
   return (
     <header
-      className="sticky top-0 z-50 hairline-b bg-background/75 backdrop-blur-xl"
+      className="sticky top-0 z-50 hairline-b bg-background/85 backdrop-blur-xl"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
-      <div className="max-w-screen-sm mx-auto px-4 h-[56px] flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <CeoPenGlyph size={30} />
-          <span className="font-signature text-[22px] leading-none text-foreground translate-y-[2px]">
-            CEO <span className="text-primary">Pen</span>
-          </span>
-        </div>
+      <div className="max-w-screen-md mx-auto px-4 lg:px-6 h-[56px] flex items-center justify-between">
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          className="tap-press"
+          aria-label="CEO Pen — scroll to top"
+        >
+          <CeoPenWordmark size={20} />
+        </button>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <Button
             size="sm"
             onClick={handleGenerateDraft}
             disabled={generatingDraft}
             className="h-9 px-3 text-xs rounded-full tap-press"
           >
-            <Sparkles className="w-3.5 h-3.5 mr-1" />
-            {generatingDraft ? "…" : "New"}
+            {generatingDraft ? <Sparkles className="w-3.5 h-3.5 mr-1 animate-pulse" /> : <Plus className="w-3.5 h-3.5 mr-1" />}
+            {generatingDraft ? "Sharpening…" : "New"}
           </Button>
           <Button
             size="sm"
