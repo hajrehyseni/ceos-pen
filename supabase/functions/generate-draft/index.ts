@@ -706,6 +706,14 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
 
     if (postError) throw new Error(`Insert post failed: ${postError.message}`);
 
+    // Bump CTA usage counter
+    if (selectedCta) {
+      await supabase
+        .from("cta_library")
+        .update({ times_used: (ctaRows?.find((c: any) => c.id === selectedCta.id)?.times_used ?? 0) + 1 })
+        .eq("id", selectedCta.id);
+    }
+
     await supabase.from("agent_log").insert({
       action: "draft_generated",
       api_cost_usd: parseFloat(apiCost.toFixed(6)),
@@ -724,8 +732,13 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
         verifier_retried: verifierRetried,
         unsupported_claim_count: verifier.claims.filter((c) => !c.supported).length,
         virality_score: score.overall,
+        voice_score: voice.score,
+        voice_diagnostics: voice.diagnostics,
+        voice_rewrite_attempted: voiceRewriteAttempted,
         engagement_estimate: engagement,
         scorer_retried: scorerRetried,
+        cta_id: selectedCta?.id ?? null,
+        cta_type: selectedCta?.cta_type ?? null,
       },
     });
 
