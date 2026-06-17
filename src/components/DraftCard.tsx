@@ -325,6 +325,33 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
         </div>
       )}
 
+      {/* Quick tweaks — only when not editing/rejecting and post is still mutable */}
+      {(post.status === "draft" || post.status === "approved") && !editing && !rejecting && (
+        <div className="pt-2 border-t border-border">
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground mb-2">
+            <Wand2 className="w-3 h-3" /> Quick tweaks
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {TWEAKS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => handleTweak(t.key, t.label)}
+                disabled={tweaking !== null || loading}
+                className="text-[11px] px-2.5 py-1.5 rounded-full border border-border bg-secondary text-foreground hover:bg-secondary/70 hover:border-primary/40 transition disabled:opacity-40 disabled:cursor-not-allowed min-h-[28px]"
+              >
+                {tweaking === t.key ? "…" : t.label}
+              </button>
+            ))}
+          </div>
+          {post.first_comment_text && (
+            <div className="mt-2 text-[11px] text-muted-foreground border border-dashed border-border rounded-md px-2 py-1.5">
+              <span className="font-medium text-foreground">First comment:</span> {post.first_comment_text}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Action buttons — Draft */}
       {post.status === "draft" && !editing && !rejecting && (
         <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border">
