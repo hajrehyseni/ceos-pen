@@ -208,6 +208,16 @@ type CtaRow = {
   enabled: boolean;
 };
 
+// Default scorecard CTAs — used when the cta_library has no enabled rows so
+// every draft is guaranteed to carry the Build to Certify link.
+const DEFAULT_SCORECARD_URL = "https://build.londonra.com";
+const DEFAULT_SOFT_CTA =
+  "If you want to see how ready your business actually is for AI, the Build to Certify scorecard takes 4 minutes: " +
+  DEFAULT_SCORECARD_URL;
+const DEFAULT_HARD_CTA =
+  "If this resonates, the Build to Certify scorecard maps where you stand in 4 minutes — " +
+  DEFAULT_SCORECARD_URL;
+
 function pickCta(ctas: CtaRow[], hardRatio: number): CtaRow | null {
   const enabled = ctas.filter((c) => c.enabled);
   if (enabled.length === 0) return null;
@@ -221,6 +231,20 @@ function pickCta(ctas: CtaRow[], hardRatio: number): CtaRow | null {
     if (r <= 0) return c;
   }
   return finalPool[finalPool.length - 1];
+}
+
+// Guarantee a CTA — falls back to a synthesized default when the library is empty.
+function ensureCta(ctas: CtaRow[] | null, hardRatio: number): CtaRow {
+  const picked = ctas ? pickCta(ctas, hardRatio) : null;
+  if (picked) return picked;
+  const wantHard = Math.random() < hardRatio;
+  return {
+    id: wantHard ? "default-hard" : "default-soft",
+    copy: wantHard ? DEFAULT_HARD_CTA : DEFAULT_SOFT_CTA,
+    cta_type: wantHard ? "hard" : "soft",
+    weight: 1,
+    enabled: true,
+  };
 }
 
 // ===== Voice fingerprint =====
@@ -427,8 +451,9 @@ serve(async (req) => {
     const { data: ctaRows } = await supabase
       .from("cta_library").select("*").eq("enabled", true);
     const hardRatio = Number(ceoCtx?.hard_cta_ratio ?? 0.4);
-    const selectedCta = ctaRows ? pickCta(ctaRows as CtaRow[], hardRatio) : null;
-    const leadMagnetUrl = ceoCtx?.lead_magnet_url || "https://build.londonra.com";
+    const selectedCta = ensureCta(ctaRows as CtaRow[] | null, hardRatio);
+    const usedDefaultCta = selectedCta.id === "default-hard" || selectedCta.id === "default-soft";
+    const leadMagnetUrl = ceoCtx?.lead_magnet_url || DEFAULT_SCORECARD_URL;
     const forbiddenList = parseForbiddenList(ceoCtx?.forbidden_phrases || DEFAULT_FORBIDDEN.join(";"));
 
     // Fresh trends (last 5 days), prefer today's pillar
@@ -524,10 +549,10 @@ ${ceoCtx.forbidden_phrases}
       : "";
 
     // CTA instruction (hard CTA goes in the body; soft CTA is reserved for the auto first-comment)
-    const ctaInstruction = selectedCta && selectedCta.cta_type === "hard"
+    const ctaInstruction = selectedCta.cta_type === "hard"
       ? `\nLEAD-MAGNET CTA (weave this in NATURALLY at the end — one short line, in Hajre's voice, do not bold or quote it):
 "${selectedCta.copy}"
-The URL ${leadMagnetUrl} must appear in the post.`
+The URL ${leadMagnetUrl} MUST appear in the post body exactly once.`
       : `\nDO NOT include any URLs or calls-to-action in the post body. The lead-magnet link will be posted as the first comment automatically.`;
 
     const trendsBlock = relevantTrends.length > 0
@@ -554,7 +579,7 @@ ${rejectSection}`;
       .map((p: any) => (p.content ?? "").split(/\n/)[0].trim().slice(0, 120))
       .filter((s: string) => s.length > 0);
 
-    const ctaMode: "hard" | "soft" = selectedCta?.cta_type === "hard" ? "hard" : "soft";
+    const ctaMode: "hard" | "soft" = selectedCta.cta_type === "hard" ? "hard" : "soft";
 
     // STAGE 1 — Hook brainstorm
     const hookBrainstorm = await brainstormHooks(
@@ -690,6 +715,17 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
     // STAGE 6 — Final pre-save sanitiser: strip em-dashes, markdown bold, hashtags, blockquotes
     const sanitiseResult = sanitizeDraftContent(postContent);
     postContent = sanitiseResult.text;
+
+    // STAGE 6b — Scorecard guarantee. Every draft must carry the link in body or first comment.
+    let firstCommentText: string | null = selectedCta.cta_type === "soft" ? selectedCta.copy : null;
+    if (ctaMode === "hard" && !/londonra\.com/i.test(postContent)) {
+      // Model dropped the URL despite instructions — append a graceful one-liner.
+      postContent = postContent.trimEnd() + `\n\n${DEFAULT_HARD_CTA}`;
+    }
+    if (ctaMode === "soft" && (!firstCommentText || !/londonra\.com/i.test(firstCommentText))) {
+      firstCommentText = DEFAULT_SOFT_CTA;
+    }
+
     // Recompute voice score post-sanitise so diagnostics reflect what's actually saved
     forbiddenHits = findForbiddenHits(postContent, forbiddenList);
     voice = computeVoiceScore(postContent, forbiddenHits);
@@ -767,15 +803,15 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
         virality_score: score.overall,
         voice_score: voice.score,
         score_breakdown: scoreBreakdown,
-        cta_id: selectedCta?.id ?? null,
-        first_comment_text: selectedCta && selectedCta.cta_type === "soft" ? selectedCta.copy : null,
+        cta_id: usedDefaultCta ? null : selectedCta.id,
+        first_comment_text: firstCommentText,
       })
       .select("id").single();
 
     if (postError) throw new Error(`Insert post failed: ${postError.message}`);
 
-    // Bump CTA usage counter
-    if (selectedCta) {
+    // Bump CTA usage counter (only for real library rows, not the synthesized default)
+    if (!usedDefaultCta) {
       await supabase
         .from("cta_library")
         .update({ times_used: (ctaRows?.find((c: any) => c.id === selectedCta.id)?.times_used ?? 0) + 1 })
@@ -818,8 +854,11 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
         voice_rewrite_attempted: voiceRewriteAttempted,
         engagement_estimate: engagement,
         scorer_retried: scorerRetried,
-        cta_id: selectedCta?.id ?? null,
-        cta_type: selectedCta?.cta_type ?? null,
+        cta_id: usedDefaultCta ? null : selectedCta.id,
+        cta_type: selectedCta.cta_type,
+        cta_default_used: usedDefaultCta,
+        scorecard_in_body: ctaMode === "hard",
+        scorecard_in_first_comment: ctaMode === "soft",
       },
     });
 

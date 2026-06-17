@@ -30,16 +30,17 @@ function getNextRun(): { label: string; time: Date } {
   return candidates[0] || { label: "Next run", time: now };
 }
 
-function relTime(d: Date): string {
-  const diffMs = Date.now() - d.getTime();
-  const future = diffMs < 0;
-  const ms = Math.abs(diffMs);
-  const m = Math.floor(ms / 60000);
-  if (m < 60) return future ? `in ${m}m` : `${m}m ago`;
+function shortAgo(d: Date): string {
+  const ms = Date.now() - d.getTime();
+  const m = Math.floor(Math.abs(ms) / 60000);
+  if (m < 60) return `${m}m`;
   const h = Math.floor(m / 60);
-  if (h < 24) return future ? `in ${h}h` : `${h}h ago`;
-  const days = Math.floor(h / 24);
-  return future ? `in ${days}d` : `${days}d ago`;
+  if (h < 24) return `${h}h`;
+  return `${Math.floor(h / 24)}d`;
+}
+
+function shortTime(d: Date): string {
+  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 export function AgentStatusFooter({ agentLogs }: Props) {
@@ -62,7 +63,7 @@ export function AgentStatusFooter({ agentLogs }: Props) {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
               </span>
               <span className="text-[11px] text-muted-foreground truncate">
-                {lastRun ? `Last: ${relTime(lastRun)}` : "No runs yet"} · Next {next.label.toLowerCase()} {relTime(next.time)}
+                {lastRun ? `Last ${shortAgo(lastRun)}` : "No runs"} · Next {shortTime(next.time)}
               </span>
             </div>
             <ChevronUp className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
@@ -90,7 +91,7 @@ export function AgentStatusFooter({ agentLogs }: Props) {
               {recent.map((l) => (
                 <li key={l.id} className="flex items-center justify-between text-xs px-3 py-2 rounded-md bg-secondary/40">
                   <span className="text-foreground">{l.action.replace(/_/g, " ")}</span>
-                  <span className="text-muted-foreground tabular-nums">{relTime(new Date(l.created_at))}</span>
+                  <span className="text-muted-foreground tabular-nums">{shortAgo(new Date(l.created_at))} ago</span>
                 </li>
               ))}
               {recent.length === 0 && <li className="text-xs text-muted-foreground">No activity yet.</li>}

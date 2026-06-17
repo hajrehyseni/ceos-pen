@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion";
 import { Post } from "@/types/database";
 import { PILLARS, PillarKey } from "@/lib/constants";
-import { Check, X, Pencil, Linkedin, Image as ImageIcon, Clock, ShieldCheck, Sparkles } from "lucide-react";
+import { Check, X, Pencil, Linkedin, ShieldCheck, MessageCircleHeart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,14 @@ export function HeroDraftCard({ drafts, onUpdate }: Props) {
 
   const post = drafts[index % drafts.length];
   const pillar = PILLARS[post.pillar as PillarKey];
+
+  const scorecard = useMemo(() => {
+    const inBody = /londonra\.com/i.test(post.content);
+    const inComment = !!post.first_comment_text && /londonra\.com/i.test(post.first_comment_text);
+    if (inBody) return { ok: true, where: "in body" as const };
+    if (inComment) return { ok: true, where: "first comment" as const };
+    return { ok: false, where: "missing" as const };
+  }, [post.content, post.first_comment_text]);
 
   const advance = () => {
     setIndex((i) => (i + 1) % drafts.length);
@@ -92,15 +100,13 @@ export function HeroDraftCard({ drafts, onUpdate }: Props) {
 
   const score = typeof post.virality_score === "number" ? post.virality_score : null;
   const verified = post.verification_status === "passed";
+  const queued = drafts.length - 1;
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between px-1">
-        <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Draft of the day</h2>
-        <span className="text-[11px] text-muted-foreground">
-          {index + 1} / {drafts.length}
-        </span>
-      </div>
+      <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground px-1">
+        Draft of the day
+      </h2>
 
       <div className="relative">
         <motion.div
@@ -111,7 +117,6 @@ export function HeroDraftCard({ drafts, onUpdate }: Props) {
           onDragEnd={onDragEnd}
           className="card-surface relative overflow-hidden p-4 select-none cursor-grab active:cursor-grabbing touch-pan-y"
         >
-          {/* Swipe overlays */}
           <motion.div
             style={{ opacity: approveOpacity }}
             className="pointer-events-none absolute top-3 left-3 z-10 px-2 py-1 rounded-md border-2 border-success text-success font-bold text-xs uppercase tracking-wider rotate-[-12deg]"
@@ -125,21 +130,22 @@ export function HeroDraftCard({ drafts, onUpdate }: Props) {
             Reject
           </motion.div>
 
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 gap-2">
             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${pillarClassMap[post.pillar] || ""}`}>
               {pillar?.label || post.pillar}
             </span>
-            <div className="flex items-center gap-1.5">
-              {verified && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] text-success">
-                  <ShieldCheck className="w-3 h-3" /> Verified
+            <div className="flex items-center gap-2 text-[10px]">
+              {verified && score !== null ? (
+                <span className="inline-flex items-center gap-1 text-success">
+                  <ShieldCheck className="w-3 h-3" /> {score.toFixed(1)} verified
                 </span>
-              )}
-              {score !== null && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] text-primary font-medium">
-                  <Sparkles className="w-3 h-3" /> {score.toFixed(1)}
+              ) : verified ? (
+                <span className="inline-flex items-center gap-1 text-success">
+                  <ShieldCheck className="w-3 h-3" /> verified
                 </span>
-              )}
+              ) : score !== null ? (
+                <span className="text-primary font-medium">{score.toFixed(1)}</span>
+              ) : null}
             </div>
           </div>
 
@@ -150,49 +156,49 @@ export function HeroDraftCard({ drafts, onUpdate }: Props) {
             {post.content.split("\n").slice(1).join("\n").trim() || post.content.slice(post.content.split("\n")[0].length).trim()}
           </p>
 
-          <div className="flex items-center gap-3 mt-3 text-[11px] text-muted-foreground">
-            {post.suggested_time && (
-              <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{post.suggested_time}</span>
-            )}
+          <div className="flex items-center gap-2 mt-3 text-[10px]">
+            <span
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border ${
+                scorecard.ok
+                  ? "border-success/40 bg-success/10 text-success"
+                  : "border-warning/40 bg-warning/10 text-warning"
+              }`}
+            >
+              <MessageCircleHeart className="w-3 h-3" />
+              Scorecard: {scorecard.where}
+            </span>
             {post.engagement_estimate && (
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+              <span className={`px-1.5 py-0.5 rounded-full font-medium ${
                 post.engagement_estimate === "high" ? "badge-high" :
                 post.engagement_estimate === "medium" ? "badge-medium" : "badge-low"
               }`}>{post.engagement_estimate}</span>
             )}
-            <span className="ml-auto text-[10px]">← Swipe →</span>
           </div>
         </motion.div>
       </div>
 
-      {/* Action bar */}
-      <div className="grid grid-cols-4 gap-2">
-        <Button size="sm" variant="destructive" className="min-h-11" onClick={handleReject} disabled={busy} aria-label="Reject">
+      {/* Action bar — 3 buttons */}
+      <div className="grid grid-cols-5 gap-2">
+        <Button size="sm" variant="destructive" className="min-h-11 col-span-1" onClick={handleReject} disabled={busy} aria-label="Reject">
           <X className="w-4 h-4" />
         </Button>
-        <Button size="sm" variant="outline" className="min-h-11" onClick={() => setOpen(true)} aria-label="Open">
-          <Pencil className="w-4 h-4" />
+        <Button size="sm" variant="outline" className="min-h-11 col-span-2" onClick={() => setOpen(true)}>
+          <Pencil className="w-4 h-4 mr-1" /> Open
         </Button>
         {post.status === "approved" ? (
           <Button size="sm" className="min-h-11 col-span-2 bg-[hsl(201,100%,35%)] hover:bg-[hsl(201,100%,30%)] text-white" onClick={handlePublish} disabled={busy}>
             <Linkedin className="w-4 h-4 mr-1" /> Publish
           </Button>
         ) : (
-          <>
-            <Button size="sm" variant="outline" className="min-h-11" onClick={() => setOpen(true)} aria-label="Visual">
-              <ImageIcon className="w-4 h-4" />
-            </Button>
-            <Button size="sm" className="min-h-11 bg-success hover:bg-success/90 text-success-foreground" onClick={handleApprove} disabled={busy} aria-label="Approve">
-              <Check className="w-4 h-4 mr-1" /> Approve
-            </Button>
-          </>
+          <Button size="sm" className="min-h-11 col-span-2 bg-success hover:bg-success/90 text-success-foreground" onClick={handleApprove} disabled={busy}>
+            <Check className="w-4 h-4 mr-1" /> Approve
+          </Button>
         )}
       </div>
 
-      {/* Pagination dots */}
-      {drafts.length > 1 && (
-        <div className="flex items-center justify-center gap-1.5 pt-1">
-          {drafts.map((_, i) => (
+      {queued > 0 && (
+        <div className="flex items-center justify-center gap-2 pt-0.5">
+          {drafts.slice(0, Math.min(drafts.length, 6)).map((_, i) => (
             <button
               key={i}
               onClick={() => setIndex(i)}
@@ -200,6 +206,7 @@ export function HeroDraftCard({ drafts, onUpdate }: Props) {
               aria-label={`Go to draft ${i + 1}`}
             />
           ))}
+          <span className="text-[10px] text-muted-foreground ml-1">{queued} more queued</span>
         </div>
       )}
 

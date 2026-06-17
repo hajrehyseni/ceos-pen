@@ -169,19 +169,28 @@ serve(async (req) => {
 
         await supabase.from("posts").update({ status: "published", published_at: publishedAt }).eq("id", post.id);
 
-        // Auto first-comment with lead-magnet CTA
+        // Auto first-comment with lead-magnet CTA.
+        // Safety net: if the post body doesn't carry the scorecard URL AND there is no
+        // first-comment text on the post, fall back to a default soft CTA so no post
+        // ships link-less.
+        const bodyHasScorecard = /londonra\.com/i.test(sanitizedContent);
+        const fallbackComment = `If you want to see how ready your business actually is for AI, the Build to Certify scorecard takes 4 minutes: ${leadMagnetUrl}`;
+        const effectiveFirstComment =
+          post.first_comment_text ||
+          (!bodyHasScorecard ? fallbackComment : null);
+
         let firstCommentResult: Record<string, unknown> | null = null;
-        if (autoFirstComment && linkedinId && post.first_comment_text) {
-          const commentText = post.first_comment_text.includes(leadMagnetUrl)
-            ? post.first_comment_text
-            : `${post.first_comment_text}\n${leadMagnetUrl}`;
+        if (autoFirstComment && linkedinId && effectiveFirstComment) {
+          const commentText = effectiveFirstComment.includes(leadMagnetUrl)
+            ? effectiveFirstComment
+            : `${effectiveFirstComment}\n${leadMagnetUrl}`;
           try {
             const c = await postFirstComment({
               accessToken, personUrn, shareUrn: linkedinId, text: commentText,
             });
             firstCommentResult = { status: c.status, ok: c.ok, comment_urn: c.commentUrn };
             if (c.ok) {
-              await supabase.from("posts").update({ first_comment_posted_at: publishedAt }).eq("id", post.id);
+              await supabase.from("posts").update({ first_comment_posted_at: publishedAt, first_comment_text: commentText }).eq("id", post.id);
             } else {
               console.error("Auto first-comment failed", c.status, c.body);
             }

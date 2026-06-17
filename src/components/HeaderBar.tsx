@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { getTodayPillar, PILLARS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Settings, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -11,13 +10,9 @@ interface HeaderBarProps {
   onDataRefresh: () => void;
 }
 
-export function HeaderBar({ weeklyCount, onSettingsClick, onDataRefresh }: HeaderBarProps) {
+export function HeaderBar({ onSettingsClick, onDataRefresh }: HeaderBarProps) {
   const { toast } = useToast();
   const [generatingDraft, setGeneratingDraft] = useState(false);
-
-  const pillarKey = getTodayPillar();
-  const pillar = PILLARS[pillarKey];
-  const shortDateStr = new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 
   const handleGenerateDraft = async () => {
     setGeneratingDraft(true);
@@ -34,18 +29,12 @@ export function HeaderBar({ weeklyCount, onSettingsClick, onDataRefresh }: Heade
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-xl">
-      <div className="max-w-screen-sm mx-auto px-3 h-[52px] flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <h1 className="text-base font-bold text-foreground tracking-tight whitespace-nowrap">
-            CEO <span className="text-primary">Pen</span>
-          </h1>
-          <span className={`text-[11px] text-${pillar.color} font-medium truncate`}>· {pillar.label}</span>
-        </div>
+      <div className="max-w-screen-sm mx-auto px-4 h-[52px] flex items-center justify-between">
+        <h1 className="text-base font-bold text-foreground tracking-tight whitespace-nowrap">
+          CEO <span className="text-primary">Pen</span>
+        </h1>
 
-        <div className="flex items-center gap-1 shrink-0">
-          <span className="text-[11px] text-muted-foreground mr-1 tabular-nums">
-            <span className={`font-bold ${weeklyCount >= 5 ? "text-success" : "text-primary"}`}>{weeklyCount}</span>/5
-          </span>
+        <div className="flex items-center gap-1">
           <Button
             size="sm"
             onClick={handleGenerateDraft}
