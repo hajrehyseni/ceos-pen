@@ -80,6 +80,8 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       lead_magnet_url: ceo.lead_magnet_url,
       auto_first_comment: ceo.auto_first_comment,
       hard_cta_ratio: ceo.hard_cta_ratio,
+      competitor_urls: ceo.competitor_urls,
+      trend_keywords: ceo.trend_keywords,
       updated_at: new Date().toISOString(),
     }).eq("id", ceo.id);
     setSaving(false);
