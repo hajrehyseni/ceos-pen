@@ -4,7 +4,7 @@ import { PILLARS, PillarKey } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Check, Pencil, X, Copy, Send, ChevronDown, ChevronUp, Clock, Linkedin, AlertTriangle, ShieldCheck, ShieldAlert, Sparkles } from "lucide-react";
+import { Check, Pencil, X, Copy, Send, ChevronDown, ChevronUp, Clock, Linkedin, AlertTriangle, ShieldCheck, ShieldAlert, Sparkles, Wand2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -32,6 +32,34 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [scoreOpen, setScoreOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [tweaking, setTweaking] = useState<string | null>(null);
+
+  const TWEAKS: Array<{ key: string; label: string }> = [
+    { key: "add_british_humour", label: "Add British humour" },
+    { key: "make_more_fun", label: "Make it more fun" },
+    { key: "less_corporate", label: "Make it less corporate" },
+    { key: "sound_more_like_hajre", label: "Sound more like Hajrë" },
+    { key: "add_natural_lead_magnet", label: "Add natural lead-magnet CTA" },
+    { key: "add_softer_lead_magnet", label: "Add softer lead-magnet CTA" },
+    { key: "less_salesy_cta", label: "Make CTA less salesy" },
+    { key: "add_lead_magnet_first_comment", label: "Set lead-magnet as first comment" },
+  ];
+
+  const handleTweak = async (key: string, label: string) => {
+    setTweaking(key);
+    try {
+      const { data, error } = await supabase.functions.invoke("tone-tune", {
+        body: { post_id: post.id, tweak: key },
+      });
+      if (error) throw error;
+      if (data?.status === "error") throw new Error(data.error);
+      toast({ title: label, description: "Draft updated." });
+      onUpdate();
+    } catch (e: any) {
+      toast({ title: "Tweak failed", description: e.message, variant: "destructive" });
+    }
+    setTweaking(null);
+  };
 
   const pillar = PILLARS[post.pillar as PillarKey];
   const pillarClasses = pillarColorMap[post.pillar] || "";
@@ -202,6 +230,8 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
                 <Bar label="Specific" val={Number(sb.specificity ?? 0)} />
                 <Bar label="Emotional" val={Number(sb.emotional_pull ?? 0)} />
                 <Bar label="Shareable" val={Number(sb.shareability ?? 0)} />
+                {typeof sb.humour_fit === "number" && <Bar label="Humour" val={Number(sb.humour_fit)} />}
+                {typeof sb.lead_magnet_fit === "number" && <Bar label="Lead-mag" val={Number(sb.lead_magnet_fit)} />}
                 <div className="flex gap-3 pt-1 text-[11px] text-muted-foreground">
                   <span className={u.actionable_takeaway ? "text-success" : ""}>{u.actionable_takeaway ? "✓" : "·"} actionable</span>
                   <span className={u.contrarian_angle ? "text-success" : ""}>{u.contrarian_angle ? "✓" : "·"} contrarian</span>
@@ -292,6 +322,33 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
           />
           <Button size="sm" variant="destructive" onClick={handleReject} disabled={loading}>Confirm</Button>
           <Button size="sm" variant="ghost" onClick={() => setRejecting(false)}>Cancel</Button>
+        </div>
+      )}
+
+      {/* Quick tweaks — only when not editing/rejecting and post is still mutable */}
+      {(post.status === "draft" || post.status === "approved") && !editing && !rejecting && (
+        <div className="pt-2 border-t border-border">
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground mb-2">
+            <Wand2 className="w-3 h-3" /> Quick tweaks
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {TWEAKS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => handleTweak(t.key, t.label)}
+                disabled={tweaking !== null || loading}
+                className="text-[11px] px-2.5 py-1.5 rounded-full border border-border bg-secondary text-foreground hover:bg-secondary/70 hover:border-primary/40 transition disabled:opacity-40 disabled:cursor-not-allowed min-h-[28px]"
+              >
+                {tweaking === t.key ? "…" : t.label}
+              </button>
+            ))}
+          </div>
+          {post.first_comment_text && (
+            <div className="mt-2 text-[11px] text-muted-foreground border border-dashed border-border rounded-md px-2 py-1.5">
+              <span className="font-medium text-foreground">First comment:</span> {post.first_comment_text}
+            </div>
+          )}
         </div>
       )}
 
