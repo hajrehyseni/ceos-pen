@@ -1,32 +1,35 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Copy, Loader2, RefreshCw, ImageIcon, AlertTriangle } from "lucide-react";
 import { useVisualAsset } from "./useVisualAsset";
-import { copyText } from "./exportNode";
+import { copyText, downloadBlob, nodeToPngBlob } from "./exportNode";
 import { useToast } from "@/hooks/use-toast";
 import { QualityBadge } from "./QualityBadge";
+import { makeImageFallback } from "./visualDefaults";
 
-export function ImagePostPreview({ postId }: { postId: string }) {
+export function ImagePostPreview({ postId, draftContent }: { postId: string; draftContent: string }) {
   const { toast } = useToast();
   const { asset, generating, generate, error } = useVisualAsset(postId, "image_post");
-  const p = asset?.payload;
+  const ref = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState(false);
+  const p = asset?.payload ?? makeImageFallback(draftContent);
 
   async function copyField(name: string, value: string) {
     await copyText(value);
     toast({ title: `${name} copied` });
   }
 
-  if (!asset && !generating) {
-    return (
-      <div className="rounded-md border border-dashed border-border p-6 text-center space-y-3">
-        <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">No image post yet.</p>
-        <Button size="sm" onClick={() => generate()} disabled={generating}>
-          <Sparkles className="w-4 h-4 mr-1" /> Create image post
-        </Button>
-        {error && <p className="text-xs text-destructive">{error}</p>}
-      </div>
-    );
+  async function exportPng() {
+    if (!ref.current) return;
+    setExporting(true);
+    try {
+      const blob = await nodeToPngBlob(ref.current, 2);
+      downloadBlob(blob, "image-post.png");
+      toast({ title: "Image post exported" });
+    } catch (e: any) {
+      toast({ title: "Export failed", description: e.message, variant: "destructive" });
+    }
+    setExporting(false);
   }
 
   if (generating && !asset) {
@@ -40,12 +43,27 @@ export function ImagePostPreview({ postId }: { postId: string }) {
 
   return (
     <div className="space-y-3">
+      {!asset && (
+        <div className="rounded-md border border-primary/30 bg-primary/10 p-3 text-xs text-muted-foreground flex items-start justify-between gap-3">
+          <span>Instant image preview from the draft. Create image post to polish concept, caption and first comment.</span>
+          <Button size="sm" onClick={() => generate()} disabled={generating} className="shrink-0">
+            <Sparkles className="w-3.5 h-3.5 mr-1" /> Create
+          </Button>
+        </div>
+      )}
       <div className="max-w-[360px] mx-auto">
         <div
+          ref={ref}
           className="aspect-square rounded-xl p-6 flex items-center justify-center text-white text-center"
-          style={{ background: "linear-gradient(135deg,#0f172a 0%,#312e81 50%,#4338ca 100%)" }}
+          style={{ background: "radial-gradient(circle at 25% 20%,#22d3ee33 0,#22d3ee00 32%), linear-gradient(135deg,#0f172a 0%,#1f2937 48%,#312e81 100%)" }}
         >
-          <span className="text-2xl font-semibold leading-tight">{p?.overlay_text}</span>
+          <div className="space-y-5">
+            <div className="mx-auto h-14 w-14 rounded-full border border-white/20 bg-white/10 flex items-center justify-center">
+              <ImageIcon className="w-7 h-7 opacity-80" />
+            </div>
+            <span className="block text-2xl font-semibold leading-tight">{p?.overlay_text}</span>
+            <div className="text-[10px] uppercase tracking-widest opacity-55">London Royal Academy</div>
+          </div>
         </div>
         <p className="text-[10px] text-muted-foreground italic mt-2 text-center">{p?.concept}</p>
       </div>
@@ -65,10 +83,18 @@ export function ImagePostPreview({ postId }: { postId: string }) {
       <QualityBadge quality={p?.quality} />
 
       <div className="flex gap-2 pt-1">
+        <Button size="sm" variant="outline" onClick={exportPng} disabled={exporting}>
+          {exporting ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5 mr-1" />}
+          PNG
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => copyField("Image package", `${p?.caption}\n\nFirst comment:\n${p?.first_comment}`)}>
+          <Copy className="w-3.5 h-3.5 mr-1" /> Copy package
+        </Button>
         <Button size="sm" variant="ghost" onClick={() => generate()} disabled={generating}>
           <RefreshCw className={`w-3.5 h-3.5 mr-1 ${generating ? "animate-spin" : ""}`} /> Regenerate
         </Button>
       </div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }
