@@ -291,9 +291,13 @@ function computeVoiceScore(text: string, forbiddenHits: string[]): {
 async function brainstormHooks(
   apiKey: string,
   userMessage: string,
+  recentOpeners: string[],
 ): Promise<{ hooks: Array<{ shape: string; text: string }>; inputTokens: number; outputTokens: number }> {
   try {
-    const r = await callClaude(apiKey, CLAUDE_GENERATION_MODEL, HOOK_BRAINSTORM_PROMPT, userMessage, 600);
+    const openerBlock = recentOpeners.length > 0
+      ? `\n\nRECENT POST OPENERS (do NOT echo their first 4 words or verb):\n${recentOpeners.map((o, i) => `${i + 1}. ${o}`).join("\n")}`
+      : "";
+    const r = await callClaude(apiKey, CLAUDE_GENERATION_MODEL, HOOK_BRAINSTORM_PROMPT, userMessage + openerBlock, 600);
     const parsed = JSON.parse(stripJsonFence(r.text));
     const hooks = Array.isArray(parsed.hooks) ? parsed.hooks.filter((h: any) => h?.text) : [];
     return { hooks, inputTokens: r.inputTokens, outputTokens: r.outputTokens };
@@ -326,7 +330,7 @@ async function verifyDraft(
   }
 }
 
-async function scoreDraft(draft: string, apiKey: string): Promise<ScoreResult> {
+async function scoreDraft(draft: string, apiKey: string, ctaMode: "hard" | "soft"): Promise<ScoreResult> {
   const empty: ScoreResult = {
     hook_strength: 0, specificity: 0, emotional_pull: 0, shareability: 0,
     humour_fit: 0, lead_magnet_fit: 0,
@@ -338,7 +342,7 @@ async function scoreDraft(draft: string, apiKey: string): Promise<ScoreResult> {
       apiKey,
       CLAUDE_VERIFIER_MODEL,
       SCORER_SYSTEM_PROMPT,
-      `DRAFT POST:\n"""${draft}"""\n\nScore the draft. Return JSON only.`,
+      `CTA_MODE: ${ctaMode}\n\nDRAFT POST:\n"""${draft}"""\n\nScore the draft. Return JSON only.`,
       800,
     );
     const parsed = JSON.parse(stripJsonFence(r.text));
