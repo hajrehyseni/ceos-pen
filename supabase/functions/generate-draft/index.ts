@@ -464,9 +464,32 @@ serve(async (req) => {
       ? `\nHIGH-PERFORMING PAST POSTS (match this energy — same voice, same level of specificity, same shape of hook):\n${winners.map((w, i) => `${i + 1}. (engagement ${w.score})\n"""${w.content}"""`).join("\n\n")}\n`
       : "";
 
+    // CEO context block — keeps the agent grounded in Hajre's voice + worldview
+    const ceoBlock = ceoCtx
+      ? `\nWHO YOU ARE WRITING AS:
+${ceoCtx.bio}
+
+WORLDVIEW (use this as the lens — do not quote it verbatim):
+${ceoCtx.worldview}
+
+RECURRING STORIES YOU CAN DRAW FROM (use specifics, change details to keep it fresh, never fabricate):
+${ceoCtx.recurring_stories}
+
+FORBIDDEN PHRASES — never use these (instant rejection):
+${ceoCtx.forbidden_phrases}
+`
+      : "";
+
+    // CTA instruction (hard CTA goes in the body; soft CTA is reserved for the auto first-comment)
+    const ctaInstruction = selectedCta && selectedCta.cta_type === "hard"
+      ? `\nLEAD-MAGNET CTA (weave this in NATURALLY at the end — one short line, in Hajre's voice, do not bold or quote it):
+"${selectedCta.copy}"
+The URL ${leadMagnetUrl} must appear in the post.`
+      : `\nDO NOT include any URLs or calls-to-action in the post body. The lead-magnet link will be posted as the first comment automatically.`;
+
     // Base context shared with hook + body
     const contextBlock = `Today is ${todayStr}. The content pillar for today is: ${pillarLabel}.
-
+${ceoBlock}
 NEWS ITEMS (source material, every named entity/number/study must come from here):
 ${newsSection}
 ${aiLandscapeBlock}
@@ -491,6 +514,7 @@ ${rejectSection}`;
 
 HOOK OPTIONS (pick the single strongest one, then build the post around it — you may sharpen the wording but keep its shape):
 ${hookList}
+${ctaInstruction}
 
 Write the full LinkedIn post for the ${pillarLabel} pillar. 150-350 words. Output ONLY the post text.`;
 
