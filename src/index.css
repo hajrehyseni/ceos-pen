@@ -4,75 +4,71 @@
 
 @layer base {
   :root {
-    /* === Indigo Command — tightened === */
-    /* Deeper backgrounds, layered surfaces, real hairlines */
-    --background: 240 47% 5%;            /* #0a0a1a */
-    --foreground: 214 32% 94%;
+    /* === CEO Pen — Editorial Dark === */
+    /* Deep ink, layered surfaces, hairline borders, one accent. */
+    --background: 240 18% 5%;            /* #0B0B0F deep ink */
+    --foreground: 220 14% 92%;
 
-    --surface-1: 240 40% 9%;             /* #10102a — card base */
-    --surface-2: 240 38% 13%;            /* #16163a — elevated card */
-    --surface-3: 240 32% 18%;            /* hover / pressed */
+    --surface-1: 240 12% 9%;             /* #15151B card */
+    --surface-2: 240 12% 12%;            /* #1B1B22 elevated */
+    --surface-3: 240 10% 16%;            /* hover */
 
-    --card: 240 40% 9%;
-    --card-foreground: 214 32% 94%;
+    --card: 240 12% 9%;
+    --card-foreground: 220 14% 92%;
 
-    --popover: 240 40% 9%;
-    --popover-foreground: 214 32% 94%;
+    --popover: 240 12% 9%;
+    --popover-foreground: 220 14% 92%;
 
-    --primary: 239 84% 60%;              /* indigo #4f46e5 */
+    /* Single accent — Ink Indigo */
+    --primary: 239 84% 67%;              /* #6366F1 */
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 245 90% 72%;
+    --primary-glow: 239 84% 75%;
 
-    --secondary: 240 32% 14%;
-    --secondary-foreground: 214 32% 94%;
+    --secondary: 240 10% 14%;
+    --secondary-foreground: 220 14% 92%;
 
-    --muted: 240 24% 14%;
-    --muted-foreground: 220 14% 62%;
+    --muted: 240 8% 14%;
+    --muted-foreground: 220 8% 58%;
 
-    --accent: 240 32% 14%;
-    --accent-foreground: 214 32% 94%;
+    --accent: 240 10% 14%;
+    --accent-foreground: 220 14% 92%;
 
-    --destructive: 350 80% 56%;
+    --destructive: 0 72% 56%;            /* red — reject/errors only */
     --destructive-foreground: 0 0% 100%;
 
-    --success: 152 70% 45%;
+    --success: 152 64% 42%;              /* green — verification only */
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 96% 56%;
+    --warning: 38 92% 56%;
     --warning-foreground: 0 0% 0%;
 
-    /* Hairline border, not heavy line */
-    --hairline: 240 30% 100%;            /* used with /alpha */
-    --border: 240 28% 22%;
-    --input: 240 28% 22%;
-    --ring: 239 84% 60%;
+    /* Hairline borders */
+    --hairline: 0 0% 100%;
+    --border: 240 8% 20%;
+    --input: 240 8% 20%;
+    --ring: 239 84% 67%;
 
-    --radius: 0.875rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 240 40% 9%;
-    --sidebar-foreground: 214 32% 94%;
-    --sidebar-primary: 239 84% 60%;
+    --sidebar-background: 240 12% 9%;
+    --sidebar-foreground: 220 14% 92%;
+    --sidebar-primary: 239 84% 67%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 32% 14%;
-    --sidebar-accent-foreground: 214 32% 94%;
-    --sidebar-border: 240 28% 22%;
-    --sidebar-ring: 239 84% 60%;
+    --sidebar-accent: 240 10% 14%;
+    --sidebar-accent-foreground: 220 14% 92%;
+    --sidebar-border: 240 8% 20%;
+    --sidebar-ring: 239 84% 67%;
 
-    /* Pillar colors */
-    --pillar-ai-agents: 239 84% 67%;
-    --pillar-defence: 152 70% 50%;
-    --pillar-academic: 187 85% 55%;
-    --pillar-ceo: 38 96% 56%;
-    --pillar-commentary: 22 92% 58%;
+    /* Pillar colors — restrained editorial hues */
+    --pillar-ai-agents: 239 84% 72%;
+    --pillar-defence: 152 50% 55%;
+    --pillar-academic: 200 70% 60%;
+    --pillar-ceo: 38 84% 60%;
+    --pillar-commentary: 22 84% 62%;
 
-    /* Gradients & shadows */
-    --gradient-hero: radial-gradient(120% 100% at 0% 0%, hsl(239 84% 60% / 0.28) 0%, hsl(240 40% 9% / 0) 60%),
-                     radial-gradient(120% 100% at 100% 100%, hsl(245 90% 72% / 0.18) 0%, hsl(240 40% 9% / 0) 60%),
-                     linear-gradient(160deg, hsl(240 40% 11%) 0%, hsl(240 42% 8%) 100%);
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-glow)) 100%);
-    --shadow-card: 0 1px 0 hsl(var(--hairline) / 0.04) inset, 0 8px 24px -12px hsl(240 60% 2% / 0.6);
-    --shadow-hero: 0 1px 0 hsl(var(--hairline) / 0.08) inset, 0 30px 60px -24px hsl(239 84% 30% / 0.35);
-    --shadow-pressed: 0 0 0 1px hsl(var(--primary) / 0.4), 0 0 24px hsl(var(--primary) / 0.2);
+    /* Shadows — soft, not glow */
+    --shadow-card: 0 1px 0 hsl(var(--hairline) / 0.04) inset, 0 4px 16px -8px hsl(0 0% 0% / 0.5);
+    --shadow-hero: 0 1px 0 hsl(var(--hairline) / 0.06) inset, 0 12px 32px -16px hsl(0 0% 0% / 0.6);
   }
 }
 
@@ -90,10 +86,10 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
   }
-  .font-signature {
-    font-family: 'Caveat', cursive;
-    font-weight: 600;
-    letter-spacing: -0.01em;
+  .font-serif {
+    font-family: 'Fraunces Variable', 'Fraunces', Georgia, 'Times New Roman', serif;
+    font-optical-sizing: auto;
+    font-variation-settings: "SOFT" 50, "WONK" 0;
   }
   .num {
     font-variant-numeric: tabular-nums;
@@ -104,39 +100,36 @@
 @layer utilities {
   .card-surface {
     background: hsl(var(--surface-1));
-    border: 1px solid hsl(var(--hairline) / 0.06);
+    border: 1px solid hsl(var(--hairline) / 0.05);
     border-radius: var(--radius);
     box-shadow: var(--shadow-card);
   }
   .card-elevated {
     background: hsl(var(--surface-2));
-    border: 1px solid hsl(var(--hairline) / 0.08);
+    border: 1px solid hsl(var(--hairline) / 0.07);
     border-radius: var(--radius);
     box-shadow: var(--shadow-card);
   }
-  .hairline { border-color: hsl(var(--hairline) / 0.07); }
-  .hairline-t { border-top: 1px solid hsl(var(--hairline) / 0.07); }
-  .hairline-b { border-bottom: 1px solid hsl(var(--hairline) / 0.07); }
-  .hero-gradient { background: var(--gradient-hero); }
+  .hairline { border-color: hsl(var(--hairline) / 0.06); }
+  .hairline-t { border-top: 1px solid hsl(var(--hairline) / 0.06); }
+  .hairline-b { border-bottom: 1px solid hsl(var(--hairline) / 0.06); }
 
   .label-eyebrow {
     font-size: 10px;
     line-height: 1;
     text-transform: uppercase;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.16em;
     font-weight: 600;
     color: hsl(var(--muted-foreground));
   }
 
-  .badge-low {
-    @apply bg-muted text-muted-foreground;
-  }
+  .badge-low { @apply bg-muted text-muted-foreground; }
   .badge-medium {
-    background-color: hsl(var(--warning) / 0.15);
+    background-color: hsl(var(--warning) / 0.14);
     color: hsl(var(--warning));
   }
   .badge-high {
-    background-color: hsl(var(--success) / 0.15);
+    background-color: hsl(var(--success) / 0.14);
     color: hsl(var(--success));
   }
 
