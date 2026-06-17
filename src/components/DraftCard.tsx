@@ -8,6 +8,8 @@ import { Check, Pencil, X, Copy, Send, ChevronDown, ChevronUp, Clock, Linkedin, 
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { VisualStudio } from "@/components/visual-studio/VisualStudio";
+import { ScorecardBadge } from "@/components/ScorecardBadge";
+import { detectScorecard, normaliseScorecardUrl, DEFAULT_SOFT_CTA } from "@/lib/scorecard";
 
 interface DraftCardProps {
   post: Post;
@@ -43,10 +45,8 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
     { key: "less_salesy_cta", label: "Soften CTA" },
   ];
 
-  const scorecardInBody = /londonra\.com/i.test(post.content);
-  const scorecardInComment = !!post.first_comment_text && /londonra\.com/i.test(post.first_comment_text);
-  const scorecardOk = scorecardInBody || scorecardInComment;
-  const scorecardWhere = scorecardInBody ? "in body" : scorecardInComment ? "first comment" : "missing";
+  const scorecardStatus = detectScorecard(post);
+  const scorecardOk = scorecardStatus.ok;
 
   const handleTweak = async (key: string, label: string) => {
     setTweaking(key);
@@ -277,16 +277,7 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
 
       {/* Meta row */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span
-          className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border ${
-            scorecardOk
-              ? "border-success/40 bg-success/10 text-success"
-              : "border-warning/40 bg-warning/10 text-warning"
-          }`}
-          title="Where the AI Readiness Scorecard link lives on this post"
-        >
-          Scorecard: {scorecardWhere}
-        </span>
+        <ScorecardBadge post={post} onUpdate={onUpdate} size="sm" />
         {post.suggested_time && (
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="w-3 h-3" />
