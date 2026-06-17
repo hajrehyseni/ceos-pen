@@ -15,8 +15,36 @@ export interface Post {
   rejected_at: string | null;
   verification_status?: string | null;
   verification_notes?: any;
+  verification_evidence?: any;
   virality_score?: number | null;
+  voice_score?: number | null;
   score_breakdown?: any;
+  cta_id?: string | null;
+  first_comment_text?: string | null;
+  first_comment_posted_at?: string | null;
+}
+
+export interface CeoContext {
+  id: string;
+  bio: string;
+  worldview: string;
+  recurring_stories: string;
+  forbidden_phrases: string;
+  lead_magnet_url: string;
+  auto_first_comment: boolean;
+  hard_cta_ratio: number;
+  updated_at: string;
+}
+
+export interface CtaItem {
+  id: string;
+  copy: string;
+  cta_type: "soft" | "hard";
+  weight: number;
+  enabled: boolean;
+  times_used: number;
+  estimated_clicks: number;
+  created_at: string;
 }
 
 export interface PostMetrics {
