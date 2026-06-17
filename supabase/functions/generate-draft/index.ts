@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { sanitizeDraftContent } from "../_shared/content-sanitize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -64,7 +65,9 @@ const HOOK_BRAINSTORM_PROMPT = `You generate LinkedIn HOOKS only — the first 1
 2. CONFESSION — admit something most people in your position won't.
 3. SCENE — a specific moment, dialogue, or sensory detail.
 
-Each hook: 1-2 sentences, max 30 words, no emoji, no hashtags, British English. Grounded in the supplied news items where possible (no fabrication).
+Each hook: 1-2 sentences, max 30 words, no emoji, no hashtags, no em dashes, British English. Grounded in the supplied news items where possible (no fabrication).
+
+OPENER DIVERSITY (critical): do NOT start any hook with these tired verbs/phrasings: "I watched", "I've noticed", "I'm watching", "I've been thinking", "Here's what", "Most people", "Everyone's", "Let me tell you". You will be given the openers of the last few posts — your three new hooks must each start with a different verb, noun, or rhetorical move from each other AND from the recent ones.
 
 Return ONLY valid JSON, no markdown:
 {
@@ -95,7 +98,7 @@ Rate each axis 0-10:
 - emotional_pull: tension, surprise, recognition, or discomfort?
 - shareability: would a thoughtful operator quote-share this with a comment?
 - humour_fit: does any wit feel natural (warm, British, founder-down-the-pub), protect credibility, and make the post more memorable? 10 = lands perfectly. 7 = one good line, doesn't try too hard. 4 = forced, cringe, or American hype. 10 is also valid for posts with NO humour where humour would have been wrong — judge on fit, not presence.
-- lead_magnet_fit: if a CTA / URL to https://build.londonra.com is present, is it natural, in-voice, a clear next step, not salesy, not "click here"? 10 = obvious and helpful. 5 = present but clunky. If no CTA is in the body (soft-CTA mode), score 10 by default — the link will be posted as the first comment.
+- lead_magnet_fit: You will be told the CTA_MODE for this draft. If CTA_MODE is "soft", the post body MUST NOT contain a URL — the link will be posted as an auto first-comment. In soft mode, score 10 by default; only deduct if the body weirdly tries to plug something. If CTA_MODE is "hard", a CTA + URL to https://build.londonra.com should appear in the body: score 10 if it's natural, in-voice, and a clear next step; 5 if present but clunky; 3 if salesy or "click-here".
 
 Usefulness booleans:
 - actionable_takeaway, contrarian_angle, data_or_example_led.
