@@ -17,51 +17,54 @@ export function PasswordGate({ onAuthenticated }: PasswordGateProps) {
     e.preventDefault();
     setLoading(true);
     setError("");
-
     try {
       const { data, error: fnError } = await supabase.functions.invoke("verify-password", {
         body: { password },
       });
-
       if (fnError) throw fnError;
-      if (data?.valid) {
-        sessionStorage.setItem("gw-auth", "true");
-        onAuthenticated();
-      } else {
+      if (!data?.valid || !data?.session) {
         setError("Incorrect password");
+        setLoading(false);
+        return;
       }
-    } catch {
-      setError("Authentication failed");
-    } finally {
+      const { error: setErr } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
+      if (setErr) throw setErr;
+      onAuthenticated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign-in failed");
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="card-surface p-8 w-full max-w-sm space-y-6">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Lock className="w-6 h-6 text-primary" />
-          </div>
-          <h1 className="text-xl font-semibold text-foreground">LinkedIn Ghostwriter</h1>
-          <p className="text-sm text-muted-foreground">Enter password to continue</p>
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-sm bg-card border border-border rounded-xl p-8 shadow-lg space-y-6"
+      >
+        <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10 mx-auto">
+          <Lock className="w-6 h-6 text-primary" />
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="bg-secondary border-border"
-            autoFocus
-          />
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Verifying..." : "Enter"}
-          </Button>
-        </form>
-      </div>
+        <div className="text-center">
+          <h1 className="text-xl font-semibold">Dashboard access</h1>
+          <p className="text-sm text-muted-foreground mt-1">Enter the password to continue.</p>
+        </div>
+        <Input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoFocus
+          required
+        />
+        {error && <p className="text-sm text-destructive text-center">{error}</p>}
+        <Button type="submit" className="w-full" disabled={loading || !password}>
+          {loading ? "Verifying..." : "Unlock"}
+        </Button>
+      </form>
     </div>
   );
 }
