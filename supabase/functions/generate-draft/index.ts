@@ -326,6 +326,7 @@ async function verifyDraft(
 async function scoreDraft(draft: string, apiKey: string): Promise<ScoreResult> {
   const empty: ScoreResult = {
     hook_strength: 0, specificity: 0, emotional_pull: 0, shareability: 0,
+    humour_fit: 0, lead_magnet_fit: 0,
     usefulness: { actionable_takeaway: false, contrarian_angle: false, data_or_example_led: false },
     overall: 0, fixes: [], inputTokens: 0, outputTokens: 0,
   };
@@ -343,6 +344,8 @@ async function scoreDraft(draft: string, apiKey: string): Promise<ScoreResult> {
       specificity: Number(parsed.specificity ?? 0),
       emotional_pull: Number(parsed.emotional_pull ?? 0),
       shareability: Number(parsed.shareability ?? 0),
+      humour_fit: Number(parsed.humour_fit ?? 7),
+      lead_magnet_fit: Number(parsed.lead_magnet_fit ?? 7),
       usefulness: {
         actionable_takeaway: !!parsed.usefulness?.actionable_takeaway,
         contrarian_angle: !!parsed.usefulness?.contrarian_angle,
@@ -363,6 +366,8 @@ function passesScoreBar(s: ScoreResult): boolean {
   return (
     s.overall >= 7.5 &&
     s.hook_strength >= 7 &&
+    s.humour_fit >= 6 &&
+    s.lead_magnet_fit >= 6 &&
     s.usefulness.actionable_takeaway &&
     (s.usefulness.contrarian_angle || s.usefulness.data_or_example_led)
   );
