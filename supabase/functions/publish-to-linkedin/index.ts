@@ -2,6 +2,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { sanitizeForLinkedIn } from "../_shared/linkedin-sanitize.ts";
 import { postFirstComment } from "../_shared/linkedin-first-comment.ts";
+import { ensureScorecard, normaliseScorecardUrl, SCORECARD_URL } from "../_shared/scorecard.ts";
+
+
 
 
 const corsHeaders = {
@@ -52,7 +55,18 @@ serve(async (req) => {
     const personUrn = "urn:li:person:1Ov50zK-3L";
     console.log("Publishing with person URN:", personUrn);
 
-    const { sanitizedText: sanitizedContent, diagnostics: sanitizeDiagnostics } = sanitizeForLinkedIn(post.content);
+    // Final scorecard safety net before publishing — guarantees the URL exists in body or first comment.
+    const ensured = ensureScorecard(post.content, post.first_comment_text, "soft");
+    if (ensured.body !== post.content || ensured.firstComment !== post.first_comment_text) {
+      await supabase.from("posts").update({
+        content: ensured.body,
+        first_comment_text: ensured.firstComment,
+      }).eq("id", post_id);
+      post.content = ensured.body;
+      post.first_comment_text = ensured.firstComment;
+    }
+
+    const { sanitizedText: sanitizedContent, diagnostics: sanitizeDiagnostics } = sanitizeForLinkedIn(ensured.body);
 
     // UGC Posts API payload
     const linkedinUrl = "https://api.linkedin.com/v2/ugcPosts";
@@ -138,10 +152,11 @@ serve(async (req) => {
         .from("ceo_context").select("auto_first_comment, lead_magnet_url").limit(1).maybeSingle();
       const autoEnabled = ceoCtx?.auto_first_comment !== false;
       if (autoEnabled) {
-        const leadUrl = ceoCtx?.lead_magnet_url || "https://build.londonra.com";
-        const commentText = post.first_comment_text.includes(leadUrl)
-          ? post.first_comment_text
-          : `${post.first_comment_text}\n${leadUrl}`;
+        const commentText = normaliseScorecardUrl(
+          post.first_comment_text.includes(SCORECARD_URL)
+            ? post.first_comment_text
+            : `${post.first_comment_text}\n${SCORECARD_URL}`,
+        );
         try {
           const c = await postFirstComment({
             accessToken, personUrn, shareUrn: linkedinId, text: commentText,

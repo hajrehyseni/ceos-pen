@@ -1,6 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { sanitizeDraftContent } from "../_shared/content-sanitize.ts";
+import {
+  SCORECARD_URL,
+  DEFAULT_SOFT_CTA as SHARED_SOFT_CTA,
+  DEFAULT_HARD_CTA as SHARED_HARD_CTA,
+  ensureScorecard,
+  normaliseScorecardUrl,
+} from "../_shared/scorecard.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -210,13 +218,10 @@ type CtaRow = {
 
 // Default scorecard CTAs — used when the cta_library has no enabled rows so
 // every draft is guaranteed to carry the Build to Certify link.
-const DEFAULT_SCORECARD_URL = "https://build.londonra.com";
-const DEFAULT_SOFT_CTA =
-  "If you want to see how ready your business actually is for AI, the Build to Certify scorecard takes 4 minutes: " +
-  DEFAULT_SCORECARD_URL;
-const DEFAULT_HARD_CTA =
-  "If this resonates, the Build to Certify scorecard maps where you stand in 4 minutes — " +
-  DEFAULT_SCORECARD_URL;
+const DEFAULT_SCORECARD_URL = SCORECARD_URL;
+const DEFAULT_SOFT_CTA = SHARED_SOFT_CTA;
+const DEFAULT_HARD_CTA = SHARED_HARD_CTA;
+
 
 function pickCta(ctas: CtaRow[], hardRatio: number): CtaRow | null {
   const enabled = ctas.filter((c) => c.enabled);
@@ -716,19 +721,18 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
     const sanitiseResult = sanitizeDraftContent(postContent);
     postContent = sanitiseResult.text;
 
-    // STAGE 6b — Scorecard guarantee. Every draft must carry the link in body or first comment.
+    // STAGE 6b — Scorecard guarantee. Single source of truth: normalise any
+    // bare/http references to the canonical https URL, then ensure the link
+    // appears in body or first comment per CTA mode.
     let firstCommentText: string | null = selectedCta.cta_type === "soft" ? selectedCta.copy : null;
-    if (ctaMode === "hard" && !/londonra\.com/i.test(postContent)) {
-      // Model dropped the URL despite instructions — append a graceful one-liner.
-      postContent = postContent.trimEnd() + `\n\n${DEFAULT_HARD_CTA}`;
-    }
-    if (ctaMode === "soft" && (!firstCommentText || !/londonra\.com/i.test(firstCommentText))) {
-      firstCommentText = DEFAULT_SOFT_CTA;
-    }
+    const ensured = ensureScorecard(postContent, firstCommentText, ctaMode);
+    postContent = ensured.body;
+    firstCommentText = ensured.firstComment;
 
     // Recompute voice score post-sanitise so diagnostics reflect what's actually saved
     forbiddenHits = findForbiddenHits(postContent, forbiddenList);
     voice = computeVoiceScore(postContent, forbiddenHits);
+
 
     // Final engagement gate: must pass verifier AND voice score must be at least 6
     const engagement = (verifier.verdict === "pass" && voice.score >= 6)

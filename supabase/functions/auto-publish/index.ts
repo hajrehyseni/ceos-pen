@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { sanitizeForLinkedIn } from "../_shared/linkedin-sanitize.ts";
 import { postFirstComment } from "../_shared/linkedin-first-comment.ts";
+import { ensureScorecard, normaliseScorecardUrl, SCORECARD_URL } from "../_shared/scorecard.ts";
+
 
 
 const corsHeaders = {
@@ -125,7 +127,9 @@ serve(async (req) => {
           continue;
         }
 
-        const { sanitizedText: sanitizedContent, diagnostics: sanitizeDiagnostics } = sanitizeForLinkedIn(post.content);
+        // Final scorecard safety net — never publish without the canonical URL.
+        const ensured = ensureScorecard(post.content, post.first_comment_text, "soft");
+        const { sanitizedText: sanitizedContent, diagnostics: sanitizeDiagnostics } = sanitizeForLinkedIn(ensured.body);
 
         console.log("Auto-publish sanitization diagnostics", {
           post_id: post.id,
@@ -133,6 +137,8 @@ serve(async (req) => {
           sanitized_content_length: sanitizeDiagnostics.sanitizedLength,
           non_ascii_removed_count: sanitizeDiagnostics.nonAsciiRemovedCount,
           first_removed_hex_codes: sanitizeDiagnostics.firstRemovedHexCodes,
+          scorecard_added: ensured.added,
+          scorecard_location: ensured.location,
         });
 
         const linkedinRes = await fetch("https://api.linkedin.com/v2/ugcPosts", {
@@ -167,23 +173,23 @@ serve(async (req) => {
         const linkedinId = linkedinRes.headers.get("x-restli-id") || null;
         const publishedAt = new Date().toISOString();
 
-        await supabase.from("posts").update({ status: "published", published_at: publishedAt }).eq("id", post.id);
+        await supabase.from("posts").update({
+          status: "published",
+          published_at: publishedAt,
+          content: ensured.body,
+          first_comment_text: ensured.firstComment,
+        }).eq("id", post.id);
 
-        // Auto first-comment with lead-magnet CTA.
-        // Safety net: if the post body doesn't carry the scorecard URL AND there is no
-        // first-comment text on the post, fall back to a default soft CTA so no post
-        // ships link-less.
-        const bodyHasScorecard = /londonra\.com/i.test(sanitizedContent);
-        const fallbackComment = `If you want to see how ready your business actually is for AI, the Build to Certify scorecard takes 4 minutes: ${leadMagnetUrl}`;
-        const effectiveFirstComment =
-          post.first_comment_text ||
-          (!bodyHasScorecard ? fallbackComment : null);
+        // Auto first-comment with lead-magnet CTA, normalised to canonical URL.
+        const effectiveFirstComment = ensured.firstComment;
 
         let firstCommentResult: Record<string, unknown> | null = null;
         if (autoFirstComment && linkedinId && effectiveFirstComment) {
-          const commentText = effectiveFirstComment.includes(leadMagnetUrl)
-            ? effectiveFirstComment
-            : `${effectiveFirstComment}\n${leadMagnetUrl}`;
+          const commentText = normaliseScorecardUrl(
+            effectiveFirstComment.includes(SCORECARD_URL)
+              ? effectiveFirstComment
+              : `${effectiveFirstComment}\n${SCORECARD_URL}`,
+          );
           try {
             const c = await postFirstComment({
               accessToken, personUrn, shareUrn: linkedinId, text: commentText,
@@ -199,6 +205,7 @@ serve(async (req) => {
             console.error("Auto first-comment threw:", e);
           }
         }
+
 
         await supabase.from("agent_log").insert({
           action: "auto_published",
