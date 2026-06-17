@@ -404,6 +404,22 @@ serve(async (req) => {
     const leadMagnetUrl = ceoCtx?.lead_magnet_url || "https://build.londonra.com";
     const forbiddenList = parseForbiddenList(ceoCtx?.forbidden_phrases || DEFAULT_FORBIDDEN.join(";"));
 
+    // Fresh trends (last 5 days), prefer today's pillar
+    const { data: trendRows } = await supabase
+      .from("trend_radar")
+      .select("title, summary, angle, counter_take, source_url, heat_score, pillar")
+      .gte("expires_at", new Date().toISOString())
+      .order("heat_score", { ascending: false })
+      .limit(8);
+    const relevantTrends = (trendRows ?? [])
+      .sort((a: any, b: any) => {
+        const aMatch = a.pillar === pillar ? 1 : 0;
+        const bMatch = b.pillar === pillar ? 1 : 0;
+        if (aMatch !== bMatch) return bMatch - aMatch;
+        return (b.heat_score ?? 0) - (a.heat_score ?? 0);
+      })
+      .slice(0, 3);
+
     // Recent rejections
     const { data: rejectedPosts } = await supabase
       .from("posts").select("content, rejection_reason")
