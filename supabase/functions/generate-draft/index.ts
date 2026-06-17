@@ -87,22 +87,22 @@ Return ONLY valid JSON, no markdown, in this exact shape:
 
 Verdict is "pass" only if every claim has supported=true. Otherwise "fail".`;
 
-const SCORER_SYSTEM_PROMPT = `You score LinkedIn posts for VIRALITY and USEFULNESS. Be harsh — a 7 means genuinely strong, a 9 means a top 1% post.
+const SCORER_SYSTEM_PROMPT = `You score LinkedIn posts for VIRALITY, USEFULNESS, BRITISH HUMOUR FIT, and LEAD-MAGNET FIT. Be harsh — a 7 means genuinely strong, a 9 means top 1%.
 
 Rate each axis 0-10:
-- hook_strength: does the first 1-2 lines force the reader to keep reading?
+- hook_strength: do the first 1-2 lines force the reader to keep reading?
 - specificity: concrete entities, numbers, named examples, real moments — not generic.
-- emotional_pull: does it create tension, surprise, recognition, or discomfort?
+- emotional_pull: tension, surprise, recognition, or discomfort?
 - shareability: would a thoughtful operator quote-share this with a comment?
+- humour_fit: does any wit feel natural (warm, British, founder-down-the-pub), protect credibility, and make the post more memorable? 10 = lands perfectly. 7 = one good line, doesn't try too hard. 4 = forced, cringe, or American hype. 10 is also valid for posts with NO humour where humour would have been wrong — judge on fit, not presence.
+- lead_magnet_fit: if a CTA / URL to https://build.londonra.com is present, is it natural, in-voice, a clear next step, not salesy, not "click here"? 10 = obvious and helpful. 5 = present but clunky. If no CTA is in the body (soft-CTA mode), score 10 by default — the link will be posted as the first comment.
 
-Then assess usefulness booleans:
-- actionable_takeaway: reader walks away with something they could DO or USE.
-- contrarian_angle: challenges a common assumption or reframes the obvious.
-- data_or_example_led: anchored on a specific stat or named case, not vibes.
+Usefulness booleans:
+- actionable_takeaway, contrarian_angle, data_or_example_led.
 
-overall = weighted average: 0.35*hook + 0.20*specificity + 0.20*emotional + 0.25*shareability.
+overall = 0.30*hook + 0.18*specificity + 0.18*emotional + 0.22*shareability + 0.07*humour_fit + 0.05*lead_magnet_fit.
 
-fixes: array of 1-4 SHORT, SPECIFIC rewrites the author should make. Empty if overall >= 8.
+fixes: 1-4 SHORT, specific rewrites. Empty if overall >= 8.
 
 Return ONLY valid JSON, no markdown:
 {
@@ -110,6 +110,8 @@ Return ONLY valid JSON, no markdown:
   "specificity": 0-10,
   "emotional_pull": 0-10,
   "shareability": 0-10,
+  "humour_fit": 0-10,
+  "lead_magnet_fit": 0-10,
   "usefulness": { "actionable_takeaway": bool, "contrarian_angle": bool, "data_or_example_led": bool },
   "overall": 0-10,
   "fixes": ["...", "..."]
