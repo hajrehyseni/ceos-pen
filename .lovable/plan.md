@@ -1,114 +1,91 @@
 
-# Ghostwriter v2 — Hajre's CEO voice, engineered for engagement & lead-magnet conversion
+# Visual Studio — Wave 4 (real assets, not just buttons)
 
-Every change below has one north star: **posts must sound like Hajre (CEO of London Royal Academy), drive comments, and funnel readers to `build.londonra.com`.** Nothing fabricated, nothing hallucinated, nothing that smells like AI.
+Goal: every draft card gets an expandable **Visual Studio** with six tabs that produce **visible, previewable, exportable** assets — mobile-first, swipeable, downloadable as PNG/PDF, copyable as text. No fabricated facts, no fake screenshots, no auto-publish.
 
-## 1. Password — change, don't remove
+## 1. Data model (one migration)
 
-You want the friction gone but the dashboard still exposes your LinkedIn token, so we'll keep one gate, just change it to **`LRA2026`** and persist the unlock so you only type it once per device (90-day cookie instead of sessionStorage).
+New tables, all RLS-enabled with the standard grants:
 
-- Update `DASHBOARD_PASSWORD` secret to `LRA2026`.
-- `PasswordGate` switches from `sessionStorage` → 90-day cookie. Type it once, forget about it.
-- Roll back the half-built Supabase Auth swap (admin user / signInWithPassword) so it stops nagging.
+- `visual_assets` — one row per generated asset
+  - `id`, `post_id` (fk posts, nullable for reply assistant), `kind` (`carousel|infographic|image_post|chart|poll|reply`), `payload jsonb`, `status` (`generating|ready|failed`), `error text`, `created_at`, `updated_at`
+- `reply_drafts` — `id`, `source_text`, `variants jsonb` (short/thoughtful/witty/disagree/lead/dm), `created_at`
 
-## 2. The Hajre Voice Engine
+`payload` shape per kind:
+- carousel: `{ slides: [{n, headline, body, visual_direction, icon_hint}], cta_slide, caption, sources[] }`
+- infographic: `{ title, blocks: [{icon, label, value, note}], caption, sources[] }`
+- image_post: `{ concept, overlay_text, style, image_prompt, caption, first_comment, risk_notes }`
+- chart: `{ type: bar|line|comparison|ranking, title, data:[{label,value,series?}], unit, sources[] }` — or `{ insufficient_data: true }`
+- poll: `{ question, options[4], caption, follow_up_comment, reply_strategy, cta }`
 
-Goal: every draft reads like *you* wrote it on the tube, not like ChatGPT.
+## 2. Edge functions (one per kind, Claude Sonnet 4.5, all use existing sanitiser + voice rules)
 
-- **Voice fingerprint pass.** New edge function `score-voice` runs after generation: compares draft against your top-rated `voice_samples` on sentence length variance, contraction rate, British spellings, first-person ratio, question density, and forbidden-phrase list ("In today's fast-paced world", "leverage", "unlock", em-dashes, etc.). Produces a 0–10 score + diff.
-- **Auto-rewrite under threshold.** Score < 7 → one rewrite pass with the specific failings injected into the prompt. Score < 7 again → flagged for manual edit, no auto-publish.
-- **Winner harvesting.** After a post hits the "high engagement" threshold in `post_metrics` (likes + 3×comments > rolling median × 1.5), it's auto-inserted into `voice_samples` with `performance_rating = 9`. The corpus trains itself.
-- **CEO context block** baked into the system prompt: who you are, that LRA is your academy, your worldview, your pet peeves, the 3 stories you reuse. One-time setup screen in Settings to capture this.
+- `gen-carousel` — 6–8 slides, last slide = soft CTA to build.londonra.com, British-warm tone, no fake numbers
+- `gen-infographic` — title + 3–5 blocks + sources from `news_items`/`trend_radar` referenced in the post
+- `gen-image-post` — concept, overlay text (≤6 words), style, full image prompt, caption, first comment, risk notes
+- `gen-chart` — requires verified numeric data: pulls from `news_items.facts`/`trend_radar.metrics` or accepts user-pasted data. If neither present → returns `{ insufficient_data: true }` so UI shows the "create conceptual visual instead?" prompt
+- `gen-poll` — question + 4 options + caption + follow-up + reply strategy + optional CTA
+- `reply-assistant` — takes pasted post/comment, returns 6 variants
 
-## 3. The Lead-Magnet CTA layer
+Each writes a `visual_assets` row (status `generating` → `ready`) so the UI can poll/subscribe.
 
-`build.londonra.com` becomes a first-class citizen, not an afterthought.
+## 3. Frontend — `src/components/visual-studio/`
 
-- New `cta_library` table: rotating set of British-witty CTAs ("Built something proper at build.londonra.com — go nick the framework", "The full playbook lives at build.londonra.com, no email wall, just take it"). Generator picks one per post weighted by past CTR.
-- **Soft-CTA vs hard-CTA rotation.** 60% soft (URL in comments mention), 40% hard (URL in post body). LinkedIn de-prioritises posts with outbound links in body, so we balance reach vs conversion.
-- **Auto first-comment.** On publish, edge function posts the link as the first comment via LinkedIn UGC API. This is the #1 conversion trick on LinkedIn and we're not using it yet.
-- Optional UTM tagging (`?utm_source=linkedin&utm_campaign=<post_id>`) so you can see in your analytics which posts drive visits.
+`VisualStudio.tsx` mounts inside `DraftCard.tsx` as a `<Collapsible>`. Tabs use existing shadcn `Tabs`. Each tab has: empty state → Generate button → loading skeleton → preview → export/copy actions.
 
-## 4. Hook Lab + A/B Testing
+Components:
+- `CarouselPreview.tsx` — uses existing `ui/carousel` (embla) in 9:16 portrait frame, swipeable, slide counter. Renders each slide to an offscreen `<div>` and uses `html-to-image` → PNG (zip via `jszip`) and `jspdf` for the PDF.
+- `InfographicPreview.tsx` — vertical 1080×1920 SVG/HTML composition, lucide icons, source panel, export PNG via `html-to-image`.
+- `ImagePostPreview.tsx` — square card mock showing overlay text on a placeholder gradient, prompt block with copy button, caption + first comment blocks.
+- `ChartPreview.tsx` — `recharts` (already in deps) bar/line/comparison/ranking; "paste your data" textarea fallback; export PNG via `html-to-image`; source links list. If `insufficient_data`, shows the prompt to switch to conceptual visual (routes to image-post tab).
+- `PollPreview.tsx` — LinkedIn-style poll mock, copy buttons for caption + follow-up + strategy.
+- `ReplyAssistant.tsx` — textarea + Generate, then 6 labelled reply cards each with copy button. Lives in the same Visual Studio (post-scoped) and also as a standalone entry in the sidebar for ad-hoc use.
 
-- Generator produces **5 hook variants** per draft (curiosity, contrarian, stat, story, question). Scorer ranks them; top 1 ships, other 4 stored in `hook_variants` table.
-- **Hook taxonomy tagging** on every post so we learn what works for *your* audience, not generic LinkedIn.
-- After 14 days, weekly job compares engagement by hook type and feeds winning patterns into next week's prompt as few-shot examples.
+Shared:
+- `useVisualAsset(postId, kind)` hook — fetch latest, subscribe to realtime updates, trigger generation.
+- `exportNode(node, filename)` helper wrapping `html-to-image`.
+- All previews wrapped in a `max-w-[420px] mx-auto` mobile frame so the studio is phone-shaped even on desktop.
 
-## 5. Trend & Competitor Radar
+## 4. Dependencies to add
 
-- Daily Firecrawl job (`scan-trends`) hits:
-  - LinkedIn search for your 7 pillar keywords (last 7 days, top engagement)
-  - 3 competitor profiles you nominate in Settings
-  - Niche RSS sources you already have
-- Claude summarises into a `trend_radar` table: angle, why it's hot, suggested counter-take in your voice. Surfaces in Command Center sidebar so you see opportunities before drafting.
-- Drafter pulls top 3 trends as optional source material, prioritising fresh angles over stale evergreen.
+`html-to-image`, `jspdf`, `jszip`. (`recharts`, `embla-carousel-react`, `lucide-react` already present.)
 
-## 6. Stronger Fact-Checking (no hallucinations, ever)
+## 5. Safety rails (carried over from Wave 3)
 
-Current verifier is a single Claude pass — it can still rubber-stamp made-up stats. Hardening:
+- All generated text routed through `_shared/content-sanitize.ts` (no em-dashes, no markdown, no hashtags).
+- Carousel/infographic/poll generators reuse the voice scorer; assets below 7.0 are flagged with a "Regenerate" hint but still shown.
+- Chart generator hard-blocks fabricated numbers — only renders if data has a source URL.
+- Nothing publishes to LinkedIn. Export = local download only.
 
-- Verifier extracts every claim that contains a number, name, date, or "study shows"-style assertion.
-- For each claim, Firecrawl scrapes the cited URL (or searches if none cited). If a claim has no verifiable source → `verification_status = 'failed'`, auto-publish blocked, draft tagged with the unverifiable claim highlighted.
-- "Soft claims" (opinion, anecdote, your own stories) bypass the URL check but still get the AI-style-phrase filter.
-- New `verification_evidence` jsonb on `posts` with the actual source quote next to each claim. You see receipts in the draft card.
+## 6. Out of scope (this wave)
 
-## 7. Format expansion
+- Real AI image rendering inside the app (we ship the prompt + preview mock; image generation hook can be added next wave).
+- Server-side PDF rendering (client-side `jspdf` is enough for 6–8 slides).
+- Analytics on visual asset usage.
 
-- **Carousels (PDF).** New format option. Generator outputs 6–10 slide outline → Lovable AI image gen creates each slide as image → assembled into PDF via `pdf-lib` in edge function → uploaded to Supabase Storage → published via LinkedIn document-share API. Template uses LRA dark/indigo brand. Roughly 1 carousel per week, scheduled for Tuesday/Thursday.
-- **Visual infographics.** Same pipeline as carousels but single image, British-humour visual metaphors (e.g. "The 4 stages of a bad hire, drawn as Tube line stops"). Generator drafts the concept brief, image gen executes, you approve.
-- **Polls.** Drafter can produce a poll variant on schedule slots flagged "low-effort engagement day" (Mondays, Fridays). Poll question + 4 options, all in your voice.
-- **Repurpose winners.** Cron job: posts older than 21 days with engagement in top 25% get auto-fed into a "rewrite from a fresh angle" prompt and pushed into the draft queue.
+## Files
 
-## 8. Reply / DM assistant
+New:
+- `supabase/migrations/<ts>_visual_assets.sql`
+- `supabase/functions/gen-carousel/index.ts`
+- `supabase/functions/gen-infographic/index.ts`
+- `supabase/functions/gen-image-post/index.ts`
+- `supabase/functions/gen-chart/index.ts`
+- `supabase/functions/gen-poll/index.ts`
+- `supabase/functions/reply-assistant/index.ts`
+- `src/components/visual-studio/VisualStudio.tsx`
+- `src/components/visual-studio/CarouselPreview.tsx`
+- `src/components/visual-studio/InfographicPreview.tsx`
+- `src/components/visual-studio/ImagePostPreview.tsx`
+- `src/components/visual-studio/ChartPreview.tsx`
+- `src/components/visual-studio/PollPreview.tsx`
+- `src/components/visual-studio/ReplyAssistant.tsx`
+- `src/components/visual-studio/useVisualAsset.ts`
+- `src/components/visual-studio/exportNode.ts`
 
-- New edge function `fetch-comments` pulls comments on your published posts (LinkedIn UGC comments endpoint, needs `r_member_social` scope — we'll reconnect the connector with that scope).
-- For each comment, Claude drafts a reply in your voice that (a) genuinely engages and (b) where natural, mentions the lead magnet.
-- Command Center gets a new "Replies" tab — one-click approve/edit/send. No auto-send for replies; you stay in the loop.
+Edited:
+- `src/components/DraftCard.tsx` — mount `<VisualStudio postId={…} />`
+- `src/components/SidebarPanel.tsx` — add standalone Reply Assistant entry
+- `src/types/database.ts` / `src/integrations/supabase/types.ts` — regenerated
 
-## 9. Database additions
-
-New tables (all with grants + RLS):
-- `hook_variants` — variants per post, type, scorer ranking, eventual engagement
-- `cta_library` — CTA copy, type (soft/hard), CTR history
-- `trend_radar` — daily trend snapshots
-- `verification_evidence` — per-claim source quotes (could be jsonb on `posts` instead)
-- `comment_replies` — fetched comments + drafted replies + status
-- `ceo_context` — one-row table with your CEO bio, worldview, stories, forbidden phrases
-
-New `voice_samples` columns: `style_tags`, `auto_harvested` boolean.
-
-## 10. Settings UI additions
-
-- CEO context editor (bio, stories, forbidden phrases)
-- Competitor profile URLs (up to 3)
-- CTA rotation weights
-- Lead magnet URL (default `build.londonra.com`, in case you launch more)
-- Toggle: auto-first-comment on/off
-- Toggle: hard-CTA frequency slider
-
-## 11. What's NOT in scope this round
-
-- Replacing the password with full Supabase Auth (you've vetoed — staying with simple gate)
-- Per-end-user OAuth (this is your single-operator tool)
-- Video posts (LinkedIn API support is awkward, defer)
-
-## Technical notes
-
-- All new edge functions deploy with `verify_jwt = false`, called by pg_cron (matches existing pattern).
-- Carousel PDF generation uses `pdf-lib` via npm import in Deno.
-- Image generation uses Lovable AI `google/gemini-3.1-flash-image-preview` (Nano Banana 2) for slide visuals.
-- Comment fetching requires LinkedIn connector reconnect with `r_member_social` scope — I'll flag this when we get to step 8.
-- All Claude calls stay on `claude-sonnet-4-20250514` (the model fix from last round).
-- pg_cron schedule additions: `scan-trends` daily 06:00 UTC, `harvest-winners` daily 03:00 UTC, `repurpose-winners` Sundays 04:00 UTC, `fetch-comments` every 2h during UK waking hours.
-
-## Suggested build order
-
-Given the size, I'd ship in 4 waves so you see value fast:
-
-1. **Wave 1 (foundation):** Password change to LRA2026 + 90-day cookie, CEO context block, voice scoring + auto-rewrite, hard fact-check with source receipts, CTA library + auto-first-comment.
-2. **Wave 2 (engagement):** Hook lab A/B, winner harvesting back into voice_samples, repurpose-winners cron.
-3. **Wave 3 (intel):** Trend & competitor radar, Command Center surfacing.
-4. **Wave 4 (formats):** Carousels, infographics, polls, reply assistant (needs connector reconnect).
-
-Tell me to start Wave 1 (or pick a different starting point) and I'll build.
+After build I'll run a smoke test: generate one of each asset on a real draft, export the carousel PDF + slide PNGs, export the infographic PNG, and screenshot the mobile preview to confirm it's truly swipeable and readable.

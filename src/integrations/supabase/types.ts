@@ -332,6 +332,27 @@ export type Database = {
           },
         ]
       }
+      reply_drafts: {
+        Row: {
+          created_at: string
+          id: string
+          source_text: string
+          variants: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          source_text: string
+          variants?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          source_text?: string
+          variants?: Json
+        }
+        Relationships: []
+      }
       settings: {
         Row: {
           id: string
@@ -400,6 +421,47 @@ export type Database = {
           {
             foreignKeyName: "trend_radar_used_in_post_id_fkey"
             columns: ["used_in_post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visual_assets: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          kind: string
+          payload: Json
+          post_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          kind: string
+          payload?: Json
+          post_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          kind?: string
+          payload?: Json
+          post_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visual_assets_post_id_fkey"
+            columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "posts"
             referencedColumns: ["id"]

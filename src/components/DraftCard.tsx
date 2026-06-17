@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Check, Pencil, X, Copy, Send, ChevronDown, ChevronUp, Clock, Linkedin, AlertTriangle, ShieldCheck, ShieldAlert, Sparkles, Wand2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { VisualStudio } from "@/components/visual-studio/VisualStudio";
 
 interface DraftCardProps {
   post: Post;
@@ -386,6 +387,8 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
           </Button>
         </div>
       )}
+
+      <VisualStudio postId={post.id} />
     </div>
   );
 }
