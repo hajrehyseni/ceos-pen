@@ -715,6 +715,17 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
     // STAGE 6 — Final pre-save sanitiser: strip em-dashes, markdown bold, hashtags, blockquotes
     const sanitiseResult = sanitizeDraftContent(postContent);
     postContent = sanitiseResult.text;
+
+    // STAGE 6b — Scorecard guarantee. Every draft must carry the link in body or first comment.
+    let firstCommentText: string | null = selectedCta.cta_type === "soft" ? selectedCta.copy : null;
+    if (ctaMode === "hard" && !/londonra\.com/i.test(postContent)) {
+      // Model dropped the URL despite instructions — append a graceful one-liner.
+      postContent = postContent.trimEnd() + `\n\n${DEFAULT_HARD_CTA}`;
+    }
+    if (ctaMode === "soft" && (!firstCommentText || !/londonra\.com/i.test(firstCommentText))) {
+      firstCommentText = DEFAULT_SOFT_CTA;
+    }
+
     // Recompute voice score post-sanitise so diagnostics reflect what's actually saved
     forbiddenHits = findForbiddenHits(postContent, forbiddenList);
     voice = computeVoiceScore(postContent, forbiddenHits);
