@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { sanitizeDraftContent } from "../_shared/content-sanitize.ts";
 import { corsHeaders, callClaudeJSON, loadPost, saveAsset, ok, bad, VOICE_RULES } from "../_shared/visual-asset.ts";
+import { scoreVisual } from "../_shared/visual-scorer.ts";
 
 const SYSTEM = `${VOICE_RULES}
 
