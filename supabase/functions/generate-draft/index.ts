@@ -803,15 +803,15 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
         virality_score: score.overall,
         voice_score: voice.score,
         score_breakdown: scoreBreakdown,
-        cta_id: selectedCta?.id ?? null,
-        first_comment_text: selectedCta && selectedCta.cta_type === "soft" ? selectedCta.copy : null,
+        cta_id: usedDefaultCta ? null : selectedCta.id,
+        first_comment_text: firstCommentText,
       })
       .select("id").single();
 
     if (postError) throw new Error(`Insert post failed: ${postError.message}`);
 
-    // Bump CTA usage counter
-    if (selectedCta) {
+    // Bump CTA usage counter (only for real library rows, not the synthesized default)
+    if (!usedDefaultCta) {
       await supabase
         .from("cta_library")
         .update({ times_used: (ctaRows?.find((c: any) => c.id === selectedCta.id)?.times_used ?? 0) + 1 })
