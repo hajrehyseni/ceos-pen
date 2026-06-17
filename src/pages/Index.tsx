@@ -9,12 +9,12 @@ import { PublishedView } from "@/components/PublishedView";
 import { AnalyticsView } from "@/components/AnalyticsView";
 import { SettingsPage } from "@/components/SettingsPage";
 
-type Tab = "drafts" | "published" | "analytics" | "settings";
+type Tab = "today" | "drafts" | "published" | "analytics" | "settings";
 
 export default function Index() {
   const [authenticated, setAuthenticated] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>("drafts");
+  const [activeTab, setActiveTab] = useState<Tab>("today");
   const [posts, setPosts] = useState<Post[]>([]);
   const [metrics, setMetrics] = useState<PostMetrics[]>([]);
   const [agentLogs, setAgentLogs] = useState<AgentLog[]>([]);
@@ -76,10 +76,16 @@ export default function Index() {
   ).length;
 
   const tabs: { key: Tab; label: string }[] = [
+    { key: "today", label: "Today" },
     { key: "drafts", label: "Drafts" },
     { key: "published", label: "Published" },
     { key: "analytics", label: "Analytics" },
   ];
+
+  const todayStr = new Date().toISOString().split("T")[0];
+  const todaysDrafts = posts.filter(
+    (p) => (p.status === "draft" || p.status === "approved") && p.created_at.startsWith(todayStr)
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -91,7 +97,7 @@ export default function Index() {
 
       {activeTab === "settings" ? (
         <div className="max-w-screen-2xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
-          <SettingsPage onBack={() => setActiveTab("drafts")} />
+          <SettingsPage onBack={() => setActiveTab("today")} />
         </div>
       ) : (
         <>
@@ -119,6 +125,24 @@ export default function Index() {
             {loading ? (
               <div className="flex items-center justify-center py-20">
                 <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : activeTab === "today" ? (
+              <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
+                <div className="flex-1 lg:w-[70%] order-2 lg:order-1 space-y-4">
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                    Today's Drafts ({todaysDrafts.length})
+                  </h2>
+                  {todaysDrafts.length === 0 ? (
+                    <div className="card-surface p-8 text-center text-sm text-muted-foreground">
+                      Nothing yet for today. Tap <span className="text-foreground font-medium">New Draft</span> in the header to write one now.
+                    </div>
+                  ) : (
+                    <DraftQueue posts={todaysDrafts} onUpdate={fetchData} />
+                  )}
+                </div>
+                <div className="lg:w-[30%] order-1 lg:order-2">
+                  <SidebarPanel posts={posts} metrics={metrics} agentLogs={agentLogs} />
+                </div>
               </div>
             ) : activeTab === "drafts" ? (
               <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">

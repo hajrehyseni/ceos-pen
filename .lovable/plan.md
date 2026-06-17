@@ -1,82 +1,64 @@
-## **Mandatory Lead Generation Rule for AI News**
+## Goal
 
-Every AI News article must guide users towards our AI Readiness Scorecard:
+Rename the product to **CEO Pen** everywhere a user can see it. No logic changes — only labels, headings, empty states, button copy, toasts, metadata, and exported asset bylines.
 
-[https://build.londonra.com](https://build.londonra.com)
+## What changes
 
-This is not optional.
+### 1. App identity & metadata
+- `index.html`: `<title>`, `og:title`, `twitter:title`, `description` → "CEO Pen — sharp LinkedIn posts from verified AI news" (under 60 chars title, under 160 desc).
+- `package.json` `name` left untouched (internal); user-facing only.
 
-The AI News section is not just there to show interesting stories. It is a lead-generation engine for London Royal Academy / Build to Certify.
+### 2. Header (`HeaderBar.tsx`)
+- Brand line "LinkedIn Ghostwriter — LRA" → **CEO Pen**.
+- Keep weekly counter + settings icon.
+- "Generate Draft" button → **New Draft**; "News" button stays as **AI News**.
 
-The purpose of every article is to turn daily AI attention into:
+### 3. Tab bar (`pages/Index.tsx`)
+- Rename tabs and add a daily landing tab:
+  - `today` → **Today** (default tab — the daily briefing: today's pillar, top AI News items, today's drafts in one mobile-first scroll)
+  - `drafts` → **Drafts**
+  - `published` → **Published**
+  - `analytics` → **Analytics**
+- The new **Today** view is a thin composition of existing pieces (pillar header + condensed AI News list + today's DraftQueue items) — no new business logic.
 
-- AI Readiness Scorecard traffic
-- qualified leads
-- LinkedIn engagement
-- future workshop conversations
-- business development opportunities
+### 4. Section renames
+- `TrendRadar.tsx` heading "Trend Radar" → **AI News**. Empty-state copy updated to match. (Database table name `trend_radar` and edge function `scan-trends` stay — internal only.)
+- `DraftQueue.tsx` heading "Draft Queue (n)" → **Drafts (n)**. Subline "Your ghostwriter runs at 7:30 AM UTC…" → "CEO Pen drafts at 7:30 AM UTC on weekdays."
+- `SidebarPanel.tsx` "Reply Assistant" label stays (already correct).
+- `ContentCalendar.tsx` heading "Content Calendar" → **This Week**.
+- `SettingsPage.tsx` "Settings" stays.
 
-Every AI News article must include a clear route to the lead magnet.
+### 5. Visual Studio
+- `DraftCard.tsx` "Create Visual" button → **Open Visual Studio**.
+- `VisualStudio.tsx` dialog title → **Visual Studio**.
+- Tab order/labels unchanged: Carousel, Poll, Reply, Image, Infographic, Chart.
 
-Each article card must include:
+### 6. Scorecard CTA wording
+- Replace user-facing strings "lead-magnet" → **Scorecard CTA** in the tone-tune button labels (`tone-tune/index.ts` `label` fields only — the internal `directive` prompts to the model stay the same, since they already point to `https://build.londonra.com`).
+  - "Add natural lead-magnet CTA" → **Add Scorecard CTA (natural)**
+  - "Add softer lead-magnet CTA" → **Add Scorecard CTA (soft)**
+  - "Set lead-magnet as first comment" → **Scorecard in first comment**
+- Settings page label for `lead_magnet_url` → **AI Readiness Scorecard URL** (default `https://build.londonra.com`).
 
-- Why this story matters
-- What it means for organisations
-- A CEO-style LinkedIn angle
-- A visual idea
-- A suggested post hook
-- A suggested CTA to the AI Readiness Scorecard
-- A first-comment CTA option
-- A “Generate post with scorecard CTA” button
-- A “Create visual with scorecard CTA” button
+### 7. Exported asset bylines
+- `CarouselPreview.tsx` footer "LRA · Hajrë" → **CEO Pen · Hajrë**.
+- `ChartPreview.tsx` footer "LRA · Verified" → **CEO Pen · Verified**.
+- `ReplyAssistant.tsx` hint "Could spark an LRA conversation" → **"Could open a Scorecard conversation"**.
 
-The CTA must always connect the news story back to AI readiness.
+### 8. Toasts / system copy
+- "Published to LinkedIn!" stays (accurate).
+- "Trends refreshed" → **AI News refreshed**.
+- "Draft generated" stays.
 
-For example, if the article is about AI agents, the CTA should connect to whether the organisation is ready to use AI agents properly.
+## What does NOT change
+- Database tables, columns, edge function names, cron schedules, model prompts' internal wording, file paths.
+- Auth, publishing, scoring, automation logic.
+- Visual Studio behaviour and exports (only the byline string changes).
+- Brand colours, fonts, layout.
 
-If the article is about AI regulation, the CTA should connect to whether the organisation has the right governance and readiness.
+## Definition of done
+Every user-visible string referencing "Ghostwriter", "LRA", "Trend Radar", "Draft Queue", "Content Calendar", or "lead-magnet" is replaced with the CEO Pen vocabulary above. A grep for those strings in `src/` and `index.html` returns zero matches in user-facing contexts. Mobile preview shows: header "CEO Pen", tabs "Today / Drafts / Published / Analytics", sidebar shows "AI News" and "Reply Assistant", draft cards open "Visual Studio", Scorecard CTA buttons are clearly labelled.
 
-If the article is about AI productivity, the CTA should connect to whether the organisation knows where AI can genuinely save time.
-
-If the article is about AI in education, leadership, automation, tools, or enterprise adoption, the CTA must connect naturally to the AI Readiness Scorecard.
-
-CTA examples:
-
-- “If this story makes you wonder where your organisation really stands with AI, start with the AI Readiness Scorecard: [https://build.londonra.com”](https://build.londonra.com”)
-- “Before buying another shiny AI tool, check whether your team is actually ready to use it properly: [https://build.londonra.com”](https://build.londonra.com”)
-- “AI news is interesting. AI readiness is what turns it into action. Start here: [https://build.londonra.com”](https://build.londonra.com”)
-- “If your team is talking about AI but still relying on guesswork, the scorecard is a good place to start: [https://build.londonra.com”](https://build.londonra.com”)
-- “This is exactly why we built the AI Readiness Scorecard — to help teams see where they are strong, where they are guessing, and where AI can actually create value: [https://build.londonra.com”](https://build.londonra.com”)
-
-Rules:
-
-- Every article must have a scorecard CTA.
-- Every post generated from AI News must include the scorecard CTA either in the post or first comment.
-- Every carousel generated from AI News must include the scorecard CTA on the final slide.
-- Every infographic generated from AI News must include the scorecard CTA in the caption or footer.
-- Every poll generated from AI News must include the scorecard CTA in the follow-up comment.
-- Every image post generated from AI News must include the scorecard CTA in the caption or first comment.
-- Use the link once per content package unless manually added again.
-- Do not force the CTA awkwardly into the middle of the post.
-- Do not make it sound desperate.
-- Do not use “click here”.
-- Do not use hard-sell language.
-- The CTA should feel like the natural next step after reading the article.
-
-Add lead-generation scoring to every article and asset:
-
-- Lead magnet fit: 1–10
-- CTA naturalness: 1–10
-- Traffic capture potential: 1–10
-- Business development relevance: 1–10
-- Sales pressure: Low / Medium / High
-
-If sales pressure is High, automatically rewrite the CTA to make it softer and more useful.
-
-Definition of done:
-
-The AI News section is only complete when every verified article can be turned into a LinkedIn post, carousel, infographic, poll, image post, or reply that naturally guides interested readers to:
-
-[https://build.londonra.com](https://build.londonra.com)
-
-The app must help us capture traffic from daily AI news and turn it into AI Readiness Scorecard completions, qualified conversations, and future training/workshop leads.
+## Technical notes
+- Pure frontend string edits plus 3 label strings in `tone-tune/index.ts`. No migrations, no schema changes, no new dependencies.
+- New `Today` tab is ~40 lines composing existing components — no new data fetches.

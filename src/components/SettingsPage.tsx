@@ -181,7 +181,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-foreground">Lead-magnet URL</label>
+              <label className="block text-sm font-medium text-foreground">AI Readiness Scorecard URL</label>
               <Input
                 value={ceo.lead_magnet_url}
                 onChange={(e) => setCeo({ ...ceo, lead_magnet_url: e.target.value })}
@@ -208,7 +208,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
 
           <div className="flex items-center justify-between pt-2 border-t border-border">
             <span className="text-sm text-foreground font-medium">
-              Auto-post lead-magnet link as the first comment
+              Auto-post Scorecard link as the first comment
             </span>
             <Switch
               checked={ceo.auto_first_comment}

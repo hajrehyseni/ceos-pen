@@ -11,7 +11,7 @@ const LABELS: Record<string, { title: string; hint: string }> = {
   thoughtful: { title: "Thoughtful", hint: "Adds an angle the post missed" },
   witty: { title: "Witty (British)", hint: "Light humour, still useful" },
   disagree: { title: "Friendly disagreement", hint: "Polite, one clear reason" },
-  lead: { title: "Lead-opening", hint: "Could spark an LRA conversation" },
+  lead: { title: "Scorecard opener", hint: "Could open a Scorecard conversation" },
   dm: { title: "Optional DM follow-up", hint: "Send after they reply" },
 };
 

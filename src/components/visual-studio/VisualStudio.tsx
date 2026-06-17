@@ -28,7 +28,7 @@ export function VisualStudio({ postId, draftContent }: { postId: string; draftCo
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" className="w-full min-h-11 border-primary/40 bg-primary/10 hover:bg-primary/15">
-          <Wand2 className="w-4 h-4 mr-1.5" /> Create Visual Studio assets
+          <Wand2 className="w-4 h-4 mr-1.5" /> Open Visual Studio
         </Button>
       </DialogTrigger>
       <DialogContent className="w-[calc(100vw-1rem)] max-w-md sm:max-w-lg max-h-[92vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">

@@ -25,11 +25,11 @@ const TWEAKS: Record<string, { label: string; directive: string }> = {
     directive: `Strip every corporate-sounding word. No "leverage", "unlock", "strategic", "ecosystem", "transformative", "drive value", "synergy". Rewrite in plain, conversational English with contractions. Sound like Hajrë talking, not a deck.`,
   },
   add_natural_lead_magnet: {
-    label: "Add natural lead-magnet CTA",
+    label: "Add Scorecard CTA (natural)",
     directive: `End with ONE short, natural line pointing readers to London Royal Academy's AI readiness scorecard at https://build.londonra.com. It must feel like the obvious next step after the insight — never "click here", never desperate, never salesy. One line, in Hajrë's voice. The URL must appear exactly once.`,
   },
   add_softer_lead_magnet: {
-    label: "Add softer lead-magnet CTA",
+    label: "Add Scorecard CTA (soft)",
     directive: `Add a soft, almost throwaway mention of the AI readiness scorecard at https://build.londonra.com as a "if this resonates, we built a small thing that helps" style line. Keep it understated. The post must still deliver full value without the link.`,
   },
   less_salesy_cta: {
@@ -41,7 +41,7 @@ const TWEAKS: Record<string, { label: string; directive: string }> = {
     directive: `Rewrite so it reads like Hajrë wrote it on the tube: contractions everywhere, short sentences, the occasional fragment, a dry British observation, first person, no em dashes, no AI-isms. Keep every fact intact — do not invent companies, numbers, or studies.`,
   },
   add_lead_magnet_first_comment: {
-    label: "Set lead-magnet as first comment",
+    label: "Scorecard in first comment",
     directive: `Do NOT change the post body. Instead, write a single short first-comment line that points to https://build.londonra.com as a helpful next step, in Hajrë's voice. Output the comment text ONLY, wrapped exactly like this: <<<FIRST_COMMENT>>>your comment here<<<END>>>. Do not output anything else.`,
   },
 };

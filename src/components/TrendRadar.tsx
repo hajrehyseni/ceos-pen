@@ -42,10 +42,10 @@ export function TrendRadar() {
     try {
       const { data, error } = await supabase.functions.invoke("scan-trends");
       if (error) throw error;
-      toast({ title: "Trends refreshed", description: `${data?.trends || 0} new trends` });
+      toast({ title: "AI News refreshed", description: `${data?.trends || 0} new items` });
       await load();
     } catch (e: any) {
-      toast({ title: "Scan failed", description: e.message, variant: "destructive" });
+      toast({ title: "Refresh failed", description: e.message, variant: "destructive" });
     }
     setScanning(false);
   };
@@ -55,7 +55,7 @@ export function TrendRadar() {
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Flame className="w-4 h-4 text-pillar-defence" />
-          Trend Radar
+          AI News
         </h3>
         <Button
           size="sm"
@@ -63,7 +63,7 @@ export function TrendRadar() {
           onClick={handleScan}
           disabled={scanning}
           className="h-8 px-2"
-          aria-label="Refresh trends"
+          aria-label="Refresh AI News"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${scanning ? "animate-spin" : ""}`} />
         </Button>
@@ -73,7 +73,7 @@ export function TrendRadar() {
         <div className="text-xs text-muted-foreground py-3">Loading…</div>
       ) : trends.length === 0 ? (
         <div className="text-xs text-muted-foreground py-3">
-          No fresh trends yet. Tap refresh to scan now, or wait for the daily 05:15 UTC sweep.
+          No fresh AI News yet. Tap refresh to scan now, or wait for the daily 05:15 UTC sweep.
         </div>
       ) : (
         <ul className="space-y-2">
