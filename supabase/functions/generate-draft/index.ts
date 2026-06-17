@@ -591,7 +591,62 @@ Keep zero-fabrication rules. Output ONLY the post text.`;
     }
 
     postContent = postContent.trim();
-    const engagement = verifier.verdict === "pass" ? engagementFromScore(score) : "low";
+
+    // STAGE 5 — Voice fingerprint check (forbidden phrases + Hajre-ness score)
+    let forbiddenHits = findForbiddenHits(postContent, forbiddenList);
+    let voice = computeVoiceScore(postContent, forbiddenHits);
+    let voiceRewriteAttempted = false;
+
+    if (forbiddenHits.length > 0 || voice.score < 7) {
+      voiceRewriteAttempted = true;
+      const phraseList = forbiddenHits.length > 0
+        ? forbiddenHits.map((p) => `- "${p}"`).join("\n")
+        : "(no exact phrase hits, but the draft sounds AI-generated — make it more conversational and specifically British in tone)";
+      const voiceRewriteMessage = `${bodyUserMessage}
+
+⚠️ THE PREVIOUS DRAFT DID NOT SOUND LIKE HAJRE. Issues:
+- Forbidden phrases / generic AI-isms found:
+${phraseList}
+- Voice score: ${voice.score}/10. Diagnostics: ${JSON.stringify(voice.diagnostics)}
+
+Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, don't, it's). Use shorter, varied sentences. Keep first person. British English. No em dashes. Make it sound like Hajre wrote it on the tube, not like ChatGPT. Output ONLY the post text.`;
+      const voiceRewrite = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, SYSTEM_PROMPT, voiceRewriteMessage);
+      const candidate = voiceRewrite.text.trim();
+      genInputTokens += voiceRewrite.inputTokens;
+      genOutputTokens += voiceRewrite.outputTokens;
+
+      // Re-verify the rewrite — never trade fabrication for voice.
+      const reverify = await verifyDraft(candidate, verifierSources, CLAUDE_API_KEY);
+      verifierInputTokens += reverify.inputTokens;
+      verifierOutputTokens += reverify.outputTokens;
+      if (reverify.verdict === "pass") {
+        postContent = candidate;
+        verifier = reverify;
+        forbiddenHits = findForbiddenHits(postContent, forbiddenList);
+        voice = computeVoiceScore(postContent, forbiddenHits);
+      } else {
+        console.warn("Voice rewrite failed re-verification — keeping original draft.");
+      }
+    }
+
+    // Final engagement gate: must pass verifier AND voice score must be at least 6
+    const engagement = (verifier.verdict === "pass" && voice.score >= 6)
+      ? engagementFromScore(score)
+      : "low";
+
+    // Build the per-claim evidence list (sources that backed each verified claim)
+    const verificationEvidence = verifier.claims.map((c) => {
+      const src = c.source_index && c.source_index > 0
+        ? verifierSources[c.source_index - 1]
+        : null;
+      return {
+        claim: c.claim,
+        type: c.type,
+        supported: c.supported,
+        reason: c.reason,
+        source: src ? { title: src.title, source: src.source, summary: src.summary } : null,
+      };
+    });
 
     const apiCost =
       genInputTokens * INPUT_COST_PER_TOKEN +
