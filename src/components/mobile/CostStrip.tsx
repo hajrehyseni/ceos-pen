@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { AgentLog } from "@/types/database";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { TrendingUp, TrendingDown } from "lucide-react";
 
 interface Props {
   agentLogs: AgentLog[];
@@ -38,28 +37,14 @@ export function CostStrip({ agentLogs }: Props) {
     return { today, week, month, prevWeek, byAction };
   }, [agentLogs]);
 
-  const delta = prevWeek > 0 ? ((week - prevWeek) / prevWeek) * 100 : 0;
-  const up = delta >= 0;
-
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <button className="w-full text-left active:scale-[0.98] transition-transform">
-          <div className="card-surface px-3 py-2.5 grid grid-cols-3 gap-2 items-center">
+          <div className="card-surface px-3 py-2.5 grid grid-cols-3 gap-2">
             <Cell label="Today" value={fmt(today)} />
             <Cell label="Week" value={fmt(week)} accent />
-            <Cell
-              label="Month"
-              value={fmt(month)}
-              extra={
-                prevWeek > 0 ? (
-                  <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${up ? "text-warning" : "text-success"}`}>
-                    {up ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                    {Math.abs(delta).toFixed(0)}%
-                  </span>
-                ) : null
-              }
-            />
+            <Cell label="Month" value={fmt(month)} />
           </div>
         </button>
       </SheetTrigger>
@@ -70,7 +55,7 @@ export function CostStrip({ agentLogs }: Props) {
         <div className="pt-4 space-y-3">
           <div className="grid grid-cols-3 gap-3">
             <Stat label="Today" value={fmt(today)} />
-            <Stat label="This week" value={fmt(week)} />
+            <Stat label="This week" value={fmt(week)} sub={prevWeek > 0 ? `vs ${fmt(prevWeek)} last` : undefined} />
             <Stat label="This month" value={fmt(month)} />
           </div>
           <div className="pt-3 border-t border-border space-y-2">
@@ -91,21 +76,21 @@ export function CostStrip({ agentLogs }: Props) {
   );
 }
 
-function Cell({ label, value, extra, accent }: { label: string; value: string; extra?: React.ReactNode; accent?: boolean }) {
+function Cell({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center text-center">
       <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
       <span className={`text-base font-bold tabular-nums leading-tight ${accent ? "text-primary" : "text-foreground"}`}>{value}</span>
-      {extra}
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="card-surface px-3 py-3 text-center">
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className="text-lg font-bold tabular-nums text-foreground">{value}</p>
+      {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
     </div>
   );
 }
