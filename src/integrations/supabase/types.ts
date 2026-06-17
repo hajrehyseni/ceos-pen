@@ -41,6 +41,75 @@ export type Database = {
         }
         Relationships: []
       }
+      ceo_context: {
+        Row: {
+          auto_first_comment: boolean
+          bio: string
+          forbidden_phrases: string
+          hard_cta_ratio: number
+          id: string
+          lead_magnet_url: string
+          recurring_stories: string
+          updated_at: string
+          worldview: string
+        }
+        Insert: {
+          auto_first_comment?: boolean
+          bio?: string
+          forbidden_phrases?: string
+          hard_cta_ratio?: number
+          id?: string
+          lead_magnet_url?: string
+          recurring_stories?: string
+          updated_at?: string
+          worldview?: string
+        }
+        Update: {
+          auto_first_comment?: boolean
+          bio?: string
+          forbidden_phrases?: string
+          hard_cta_ratio?: number
+          id?: string
+          lead_magnet_url?: string
+          recurring_stories?: string
+          updated_at?: string
+          worldview?: string
+        }
+        Relationships: []
+      }
+      cta_library: {
+        Row: {
+          copy: string
+          created_at: string
+          cta_type: string
+          enabled: boolean
+          estimated_clicks: number
+          id: string
+          times_used: number
+          weight: number
+        }
+        Insert: {
+          copy: string
+          created_at?: string
+          cta_type?: string
+          enabled?: boolean
+          estimated_clicks?: number
+          id?: string
+          times_used?: number
+          weight?: number
+        }
+        Update: {
+          copy?: string
+          created_at?: string
+          cta_type?: string
+          enabled?: boolean
+          estimated_clicks?: number
+          id?: string
+          times_used?: number
+          weight?: number
+        }
+        Relationships: []
+      }
       news_items: {
         Row: {
           collected_at: string
@@ -131,8 +200,11 @@ export type Database = {
           approved_at: string | null
           content: string
           created_at: string
+          cta_id: string | null
           edit_notes: string | null
           engagement_estimate: string | null
+          first_comment_posted_at: string | null
+          first_comment_text: string | null
           format: string
           id: string
           pillar: string
@@ -143,16 +215,21 @@ export type Database = {
           source_material: Json | null
           status: string
           suggested_time: string | null
+          verification_evidence: Json | null
           verification_notes: Json | null
           verification_status: string
           virality_score: number | null
+          voice_score: number | null
         }
         Insert: {
           approved_at?: string | null
           content: string
           created_at?: string
+          cta_id?: string | null
           edit_notes?: string | null
           engagement_estimate?: string | null
+          first_comment_posted_at?: string | null
+          first_comment_text?: string | null
           format?: string
           id?: string
           pillar: string
@@ -163,16 +240,21 @@ export type Database = {
           source_material?: Json | null
           status?: string
           suggested_time?: string | null
+          verification_evidence?: Json | null
           verification_notes?: Json | null
           verification_status?: string
           virality_score?: number | null
+          voice_score?: number | null
         }
         Update: {
           approved_at?: string | null
           content?: string
           created_at?: string
+          cta_id?: string | null
           edit_notes?: string | null
           engagement_estimate?: string | null
+          first_comment_posted_at?: string | null
+          first_comment_text?: string | null
           format?: string
           id?: string
           pillar?: string
@@ -183,11 +265,21 @@ export type Database = {
           source_material?: Json | null
           status?: string
           suggested_time?: string | null
+          verification_evidence?: Json | null
           verification_notes?: Json | null
           verification_status?: string
           virality_score?: number | null
+          voice_score?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "posts_cta_id_fkey"
+            columns: ["cta_id"]
+            isOneToOne: false
+            referencedRelation: "cta_library"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       settings: {
         Row: {
