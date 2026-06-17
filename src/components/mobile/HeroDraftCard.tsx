@@ -16,6 +16,14 @@ interface Props {
 
 const SWIPE_THRESHOLD = 90;
 
+const pillarClassMap: Record<string, string> = {
+  ai_agents: "bg-pillar-ai/15 text-pillar-ai border-pillar-ai/40",
+  defence_training: "bg-pillar-defence/15 text-pillar-defence border-pillar-defence/40",
+  academic_research: "bg-pillar-academic/15 text-pillar-academic border-pillar-academic/40",
+  ceo_journey: "bg-pillar-ceo/15 text-pillar-ceo border-pillar-ceo/40",
+  curated_commentary: "bg-pillar-commentary/15 text-pillar-commentary border-pillar-commentary/40",
+};
+
 export function HeroDraftCard({ drafts, onUpdate }: Props) {
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(false);
@@ -118,14 +126,7 @@ export function HeroDraftCard({ drafts, onUpdate }: Props) {
           </motion.div>
 
           <div className="flex items-center justify-between mb-3">
-            <span
-              className="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
-              style={{
-                color: `hsl(var(--pillar-${pillar?.color?.replace("pillar-", "") || "ai-agents"}))`,
-                borderColor: `hsl(var(--pillar-${pillar?.color?.replace("pillar-", "") || "ai-agents"}) / 0.4)`,
-                background: `hsl(var(--pillar-${pillar?.color?.replace("pillar-", "") || "ai-agents"}) / 0.1)`,
-              }}
-            >
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${pillarClassMap[post.pillar] || ""}`}>
               {pillar?.label || post.pillar}
             </span>
             <div className="flex items-center gap-1.5">
