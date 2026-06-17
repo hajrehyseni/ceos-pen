@@ -40,11 +40,13 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
     { key: "make_more_fun", label: "Make it more fun" },
     { key: "less_corporate", label: "Make it less corporate" },
     { key: "sound_more_like_hajre", label: "Sound more like Hajrë" },
-    { key: "add_natural_lead_magnet", label: "Add natural lead-magnet CTA" },
-    { key: "add_softer_lead_magnet", label: "Add softer lead-magnet CTA" },
-    { key: "less_salesy_cta", label: "Make CTA less salesy" },
-    { key: "add_lead_magnet_first_comment", label: "Set lead-magnet as first comment" },
+    { key: "less_salesy_cta", label: "Soften CTA" },
   ];
+
+  const scorecardInBody = /londonra\.com/i.test(post.content);
+  const scorecardInComment = !!post.first_comment_text && /londonra\.com/i.test(post.first_comment_text);
+  const scorecardOk = scorecardInBody || scorecardInComment;
+  const scorecardWhere = scorecardInBody ? "in body" : scorecardInComment ? "first comment" : "missing";
 
   const handleTweak = async (key: string, label: string) => {
     setTweaking(key);
@@ -274,7 +276,17 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
       )}
 
       {/* Meta row */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span
+          className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border ${
+            scorecardOk
+              ? "border-success/40 bg-success/10 text-success"
+              : "border-warning/40 bg-warning/10 text-warning"
+          }`}
+          title="Where the AI Readiness Scorecard link lives on this post"
+        >
+          Scorecard: {scorecardWhere}
+        </span>
         {post.suggested_time && (
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="w-3 h-3" />
