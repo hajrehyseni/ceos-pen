@@ -83,8 +83,9 @@ export function CarouselPreview({ postId, draftContent }: { postId: string; draf
         if (i > 0) pdf.addPage([1080, 1350], "portrait");
         pdf.addImage(dataUrl, "PNG", 0, 0, 1080, 1350);
       }
-      pdf.save("carousel.pdf");
-      toast({ title: "PDF exported" });
+      const pdfBlob = pdf.output("blob");
+      await downloadBlob(pdfBlob, "carousel.pdf");
+      toast({ title: "PDF ready", description: "Use the share sheet to save to Files." });
     } catch (e: any) {
       toast({ title: "PDF export failed", description: e.message, variant: "destructive" });
     }
