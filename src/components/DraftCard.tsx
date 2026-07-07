@@ -4,12 +4,13 @@ import { PILLARS, PillarKey } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Check, Pencil, X, Copy, Send, ChevronDown, ChevronUp, Clock, Linkedin, AlertTriangle, ShieldCheck, ShieldAlert, Sparkles, Wand2 } from "lucide-react";
+import { Check, Pencil, X, Copy, Send, ChevronDown, ChevronUp, Clock, Linkedin, AlertTriangle, ShieldCheck, ShieldAlert, Sparkles, Wand2, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { VisualStudio } from "@/components/visual-studio/VisualStudio";
 import { ScorecardBadge } from "@/components/ScorecardBadge";
 import { detectScorecard, normaliseScorecardUrl, DEFAULT_SOFT_CTA } from "@/lib/scorecard";
+import { downloadText } from "@/components/visual-studio/exportNode";
 
 interface DraftCardProps {
   post: Post;
@@ -105,6 +106,15 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
   const handleCopy = async () => {
     await navigator.clipboard.writeText(post.content);
     toast({ title: "Copied to clipboard" });
+  };
+
+  const handleDownloadText = async () => {
+    const body = post.first_comment_text
+      ? `${post.content}\n\n---\nFirst comment:\n${post.first_comment_text}`
+      : post.content;
+    const stamp = new Date(post.created_at).toISOString().slice(0, 10);
+    await downloadText(body, `ceo-pen-${post.pillar}-${stamp}.txt`);
+    toast({ title: "Draft ready", description: "Use the share sheet to save to Files." });
   };
 
   const handleMarkPublished = async () => {
