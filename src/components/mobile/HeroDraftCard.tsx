@@ -10,6 +10,14 @@ import { DraftCard } from "@/components/DraftCard";
 import { ScorecardBadge } from "@/components/ScorecardBadge";
 import { COPY } from "@/lib/copy";
 
+const pillarClassMap: Record<string, string> = {
+  ai_agents: "bg-pillar-ai/15 text-pillar-ai",
+  defence_training: "bg-pillar-defence/15 text-pillar-defence",
+  academic_research: "bg-pillar-academic/15 text-pillar-academic",
+  ceo_journey: "bg-pillar-ceo/15 text-pillar-ceo",
+  curated_commentary: "bg-pillar-commentary/15 text-pillar-commentary",
+};
+
 interface Props {
   drafts: Post[];
   onUpdate: () => void;
@@ -57,7 +65,7 @@ export function HeroDraftCard({ drafts, onUpdate, featuredId, hideEyebrow }: Pro
 
   return (
     <section className="space-y-3">
-      <h2 className="label-eyebrow px-1">Draft of the day</h2>
+      {!hideEyebrow && <h2 className="label-eyebrow px-1">Draft of the day</h2>}
 
       <article className="card-elevated p-5 space-y-4">
         <div className="flex items-center justify-between gap-2">
