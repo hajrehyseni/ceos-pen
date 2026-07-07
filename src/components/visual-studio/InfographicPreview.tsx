@@ -26,8 +26,8 @@ export function InfographicPreview({ postId, draftContent }: { postId: string; d
     setExporting(true);
     try {
       const blob = await nodeToPngBlob(ref.current, 2);
-      downloadBlob(blob, "infographic.png");
-      toast({ title: "Infographic exported" });
+      await downloadBlob(blob, "infographic.png");
+      toast({ title: "Infographic download started" });
     } catch (e: any) {
       toast({ title: "Export failed", description: e.message, variant: "destructive" });
     }

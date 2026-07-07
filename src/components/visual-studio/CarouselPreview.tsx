@@ -55,9 +55,9 @@ export function CarouselPreview({ postId, draftContent }: { postId: string; draf
         const blob = await nodeToPngBlob(node, 2);
         zip.file(`slide-${String(i + 1).padStart(2, "0")}.png`, blob);
       }
-      const out = await zip.generateAsync({ type: "blob" });
-      downloadBlob(out, "carousel-slides.zip");
-      toast({ title: "Slides exported", description: `${slides.length} PNGs zipped.` });
+      const out = await zip.generateAsync({ type: "blob", mimeType: "application/zip" });
+      await downloadBlob(out, "carousel-slides.zip");
+      toast({ title: "Slides download started", description: `${slides.length} PNGs zipped.` });
     } catch (e: any) {
       toast({ title: "PNG export failed", description: e.message, variant: "destructive" });
     }
@@ -85,7 +85,7 @@ export function CarouselPreview({ postId, draftContent }: { postId: string; draf
       }
       const pdfBlob = pdf.output("blob");
       await downloadBlob(pdfBlob, "carousel.pdf");
-      toast({ title: "PDF ready", description: "Use the share sheet to save to Files." });
+      toast({ title: "PDF download started", description: "Check Safari Downloads if it is not visible." });
     } catch (e: any) {
       toast({ title: "PDF export failed", description: e.message, variant: "destructive" });
     }
