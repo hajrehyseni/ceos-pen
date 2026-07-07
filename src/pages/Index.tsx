@@ -88,7 +88,7 @@ export default function Index() {
   ).length;
 
   const queuedDrafts = posts
-    .filter((p) => p.status === "draft" || p.status === "approved")
+    .filter((p) => p.status === "draft")
     .sort((a, b) => scoreRank(b) - scoreRank(a));
 
   const pillar = PILLARS[getTodayPillar()];
