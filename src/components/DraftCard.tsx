@@ -114,7 +114,7 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
       : post.content;
     const stamp = new Date(post.created_at).toISOString().slice(0, 10);
     await downloadText(body, `ceo-pen-${post.pillar}-${stamp}.txt`);
-    toast({ title: "Draft ready", description: "Use the share sheet to save to Files." });
+    toast({ title: "Draft download started", description: "Check Safari Downloads if it is not visible." });
   };
 
   const handleMarkPublished = async () => {

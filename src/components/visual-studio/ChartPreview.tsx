@@ -23,8 +23,8 @@ export function ChartPreview({ postId, onSwitchToImagePost }: { postId: string; 
     setExporting(true);
     try {
       const blob = await nodeToPngBlob(ref.current, 2);
-      downloadBlob(blob, "chart.png");
-      toast({ title: "Chart exported" });
+      await downloadBlob(blob, "chart.png");
+      toast({ title: "Chart download started" });
     } catch (e: any) {
       toast({ title: "Export failed", description: e.message, variant: "destructive" });
     }

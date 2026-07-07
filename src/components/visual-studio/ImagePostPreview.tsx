@@ -24,8 +24,8 @@ export function ImagePostPreview({ postId, draftContent }: { postId: string; dra
     setExporting(true);
     try {
       const blob = await nodeToPngBlob(ref.current, 2);
-      downloadBlob(blob, "image-post.png");
-      toast({ title: "Image post exported" });
+      await downloadBlob(blob, "image-post.png");
+      toast({ title: "Image download started" });
     } catch (e: any) {
       toast({ title: "Export failed", description: e.message, variant: "destructive" });
     }
