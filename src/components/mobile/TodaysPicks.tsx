@@ -13,9 +13,10 @@ import { COPY } from "@/lib/copy";
 interface Props {
   drafts: Post[];
   onUpdate: () => void;
+  onViewHistory?: () => void;
 }
 
-export function TodaysPicks({ drafts, onUpdate }: Props) {
+export function TodaysPicks({ drafts, onUpdate, onViewHistory }: Props) {
   const { toast } = useToast();
   const [featuredId, setFeaturedId] = useState<string | undefined>(undefined);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -43,11 +44,21 @@ export function TodaysPicks({ drafts, onUpdate }: Props) {
     <section className="space-y-3">
       <div className="flex items-center justify-between px-1">
         <h2 className="label-eyebrow">Today's picks</h2>
-        {drafts.length > 0 && (
-          <span className="text-[10px] text-muted-foreground num">
-            {Math.min(drafts.length, 3)} of {drafts.length}
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          {drafts.length > 0 && (
+            <span className="text-[10px] text-muted-foreground num">
+              {Math.min(drafts.length, 3)} of {drafts.length}
+            </span>
+          )}
+          {onViewHistory && (
+            <button
+              onClick={onViewHistory}
+              className="text-[10px] font-medium text-primary hover:underline"
+            >
+              History →
+            </button>
+          )}
+        </div>
       </div>
 
       <HeroDraftCard drafts={drafts} onUpdate={onUpdate} featuredId={featured?.id} hideEyebrow />
