@@ -130,7 +130,7 @@ export default function Index() {
             {/* Desktop: 2-column editorial desk. Mobile: stacked. */}
             <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6 space-y-5 lg:space-y-0">
               <div className="space-y-5">
-                <TodaysPicks drafts={queuedDrafts} onUpdate={fetchData} />
+                <TodaysPicks drafts={queuedDrafts} onUpdate={fetchData} onViewHistory={() => setActiveTab("drafts")} />
               </div>
               <aside className="hidden lg:block space-y-5">
                 <CostStrip agentLogs={agentLogs} />
