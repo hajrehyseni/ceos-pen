@@ -10,11 +10,6 @@ import { DraftCard } from "@/components/DraftCard";
 import { ScorecardBadge } from "@/components/ScorecardBadge";
 import { COPY } from "@/lib/copy";
 
-interface Props {
-  drafts: Post[];
-  onUpdate: () => void;
-}
-
 const pillarClassMap: Record<string, string> = {
   ai_agents: "bg-pillar-ai/15 text-pillar-ai",
   defence_training: "bg-pillar-defence/15 text-pillar-defence",
@@ -23,7 +18,14 @@ const pillarClassMap: Record<string, string> = {
   curated_commentary: "bg-pillar-commentary/15 text-pillar-commentary",
 };
 
-export function HeroDraftCard({ drafts, onUpdate }: Props) {
+interface Props {
+  drafts: Post[];
+  onUpdate: () => void;
+  featuredId?: string;
+  hideEyebrow?: boolean;
+}
+
+export function HeroDraftCard({ drafts, onUpdate, featuredId, hideEyebrow }: Props) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
@@ -31,7 +33,7 @@ export function HeroDraftCard({ drafts, onUpdate }: Props) {
   if (drafts.length === 0) {
     return (
       <section className="space-y-2">
-        <h2 className="label-eyebrow px-1">Draft of the day</h2>
+        {!hideEyebrow && <h2 className="label-eyebrow px-1">Draft of the day</h2>}
         <div className="card-surface p-8 text-center space-y-2">
           <p className="text-foreground font-medium font-serif text-lg">{COPY.emptyAllCaught}</p>
         </div>
@@ -39,7 +41,7 @@ export function HeroDraftCard({ drafts, onUpdate }: Props) {
     );
   }
 
-  const post = drafts[0];
+  const post = (featuredId && drafts.find((d) => d.id === featuredId)) || drafts[0];
   const pillar = PILLARS[post.pillar as PillarKey];
   const score = typeof post.virality_score === "number" ? post.virality_score : null;
   const verified = post.verification_status === "passed";
@@ -63,7 +65,7 @@ export function HeroDraftCard({ drafts, onUpdate }: Props) {
 
   return (
     <section className="space-y-3">
-      <h2 className="label-eyebrow px-1">Draft of the day</h2>
+      {!hideEyebrow && <h2 className="label-eyebrow px-1">Draft of the day</h2>}
 
       <article className="card-elevated p-5 space-y-4">
         <div className="flex items-center justify-between gap-2">

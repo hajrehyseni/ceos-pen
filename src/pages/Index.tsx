@@ -9,7 +9,7 @@ import { AnalyticsView } from "@/components/AnalyticsView";
 import { SettingsPage } from "@/components/SettingsPage";
 import { BottomTabBar, MobileTab } from "@/components/mobile/BottomTabBar";
 import { CostStrip } from "@/components/mobile/CostStrip";
-import { HeroDraftCard } from "@/components/mobile/HeroDraftCard";
+import { TodaysPicks } from "@/components/mobile/TodaysPicks";
 import { CompactNewsList } from "@/components/mobile/CompactNewsList";
 import { AgentStatusFooter } from "@/components/mobile/AgentStatusFooter";
 import { ReplyPill } from "@/components/mobile/ReplyPill";
@@ -130,11 +130,11 @@ export default function Index() {
             {/* Desktop: 2-column editorial desk. Mobile: stacked. */}
             <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6 space-y-5 lg:space-y-0">
               <div className="space-y-5">
-                <HeroDraftCard drafts={queuedDrafts} onUpdate={fetchData} />
-                <CompactNewsList />
+                <TodaysPicks drafts={queuedDrafts} onUpdate={fetchData} />
               </div>
               <aside className="hidden lg:block space-y-5">
                 <CostStrip agentLogs={agentLogs} />
+                <CompactNewsList />
                 <AgentStatusFooter agentLogs={agentLogs} />
               </aside>
             </div>
@@ -142,6 +142,7 @@ export default function Index() {
             {/* Mobile-only footer items */}
             <div className="lg:hidden space-y-5">
               <CostStrip agentLogs={agentLogs} />
+              <CompactNewsList />
               <AgentStatusFooter agentLogs={agentLogs} />
             </div>
           </div>
