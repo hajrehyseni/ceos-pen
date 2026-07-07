@@ -387,6 +387,9 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
           <Button size="sm" variant="outline" className="min-h-11 flex-1" onClick={handleCopy}>
             <Copy className="w-4 h-4 mr-1" /> Copy
           </Button>
+          <Button size="sm" variant="outline" className="min-h-11 flex-1" onClick={handleDownloadText}>
+            <Download className="w-4 h-4 mr-1" /> Save .txt
+          </Button>
           <Button
             size="sm"
             className="min-h-11 bg-[hsl(201,100%,35%)] hover:bg-[hsl(201,100%,30%)] text-white flex-1"
