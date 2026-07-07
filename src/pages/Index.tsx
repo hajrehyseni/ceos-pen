@@ -106,7 +106,7 @@ export default function Index() {
       />
 
       <main className="max-w-screen-md mx-auto px-4 lg:px-6 pt-4 pb-2 space-y-5">
-        {loading ? (
+        {loading && posts.length === 0 ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
