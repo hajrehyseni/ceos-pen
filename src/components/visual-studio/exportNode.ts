@@ -13,61 +13,89 @@ export async function nodeToPngBlob(node: HTMLElement, pixelRatio = 2): Promise<
 function isIOS(): boolean {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent || "";
-  // iPhone/iPod, iPad (including iPadOS reporting as Mac with touch)
-  return /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && "ontouchend" in document);
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  // iPadOS 13+ reports as Mac. Distinguish real iPad from desktop Mac by
+  // requiring multi-touch AND the absence of a mouse-like pointer.
+  const isMac = /Macintosh/.test(ua);
+  const multiTouch = (navigator.maxTouchPoints || 0) > 1;
+  return isMac && multiTouch;
 }
 
-/**
- * Download a Blob as a file. Works across desktop browsers and iOS Safari.
- *
- * iOS Safari refuses the classic `<a download>` trick for programmatic downloads,
- * so we prefer the Web Share API (which opens the native share sheet → Save to Files /
- * Save Image), and fall back to opening the blob in a new tab so Safari's viewer
- * shows its built-in download button.
- */
-export async function downloadBlob(blob: Blob, filename: string) {
-  const mime = blob.type || "application/octet-stream";
-  const file = new File([blob], filename, { type: mime });
+async function tryNativeShare(blob: Blob, filename: string): Promise<boolean> {
   const nav = navigator as Navigator & {
     canShare?: (data: ShareData) => boolean;
     share?: (data: ShareData) => Promise<void>;
   };
+  if (!nav.share || !nav.canShare) return false;
+  try {
+    const file = new File([blob], filename, { type: blob.type || "application/octet-stream" });
+    if (!nav.canShare({ files: [file] })) return false;
+    await nav.share({ files: [file], title: filename });
+    return true;
+  } catch (err: any) {
+    // User cancelled share sheet — treat as handled.
+    if (err?.name === "AbortError") return true;
+    console.warn("[download] share failed, falling back:", err);
+    return false;
+  }
+}
 
-  // 1. iOS/modern mobile: use the native share sheet (best UX; user can Save to Files).
-  if (isIOS() && nav.canShare && nav.share && nav.canShare({ files: [file] })) {
-    try {
-      await nav.share({ files: [file], title: filename });
-      return;
-    } catch (err: any) {
-      // User cancelled — treat as done, don't fall through.
-      if (err?.name === "AbortError") return;
-      // Any other failure: fall through to the URL path.
-    }
+function inIframe(): boolean {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Download a Blob as a file. Works across desktop browsers, sandboxed iframes
+ * (Lovable preview), and iOS Safari.
+ */
+export async function downloadBlob(blob: Blob, filename: string): Promise<void> {
+  // iOS: prefer share sheet (native "Save to Files" / Photos).
+  if (isIOS()) {
+    const shared = await tryNativeShare(blob, filename);
+    if (shared) return;
   }
 
   const url = URL.createObjectURL(blob);
+  let anchorClicked = false;
 
-  // 2. iOS Safari fallback: open the blob in a new tab; Safari's viewer offers download.
-  if (isIOS()) {
-    const win = window.open(url, "_blank");
-    if (!win) {
-      // Pop-up blocked — navigate current tab so the user still gets the file.
-      window.location.href = url;
-    }
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
-    return;
+  try {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.rel = "noopener";
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    anchorClicked = true;
+  } catch (err) {
+    console.error("[download] anchor click failed:", err);
   }
 
-  // 3. Desktop / Android: classic anchor click.
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  // Sandboxed iframes (like the Lovable preview) can silently block <a download>.
+  // Open the blob in a new tab as a guaranteed fallback so the browser at least
+  // surfaces the file to the user.
+  if (inIframe() || !anchorClicked) {
+    try {
+      const win = window.open(url, "_blank", "noopener");
+      if (!win) {
+        // Pop-up blocked → last resort, navigate current tab.
+        window.location.href = url;
+      }
+    } catch (err) {
+      console.error("[download] window.open failed:", err);
+      window.location.href = url;
+    }
+  }
+
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
+
+
 
 export async function exportNodeAsPng(node: HTMLElement, filename: string) {
   const blob = await nodeToPngBlob(node);
