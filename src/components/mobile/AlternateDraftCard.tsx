@@ -1,7 +1,7 @@
 import { Post } from "@/types/database";
 import { PILLARS, PillarKey } from "@/lib/constants";
 import { ShieldCheck, ArrowUpCircle, Link2 } from "lucide-react";
-import { hasScorecardUrl } from "@/lib/scorecard";
+import { detectScorecard } from "@/lib/scorecard";
 
 const pillarClassMap: Record<string, string> = {
   ai_agents: "bg-pillar-ai/15 text-pillar-ai",
@@ -21,7 +21,7 @@ export function AlternateDraftCard({ post, onPromote, onOpen }: Props) {
   const pillar = PILLARS[post.pillar as PillarKey];
   const score = typeof post.virality_score === "number" ? post.virality_score : null;
   const verified = post.verification_status === "passed";
-  const scorecard = hasScorecardUrl(post);
+  const scorecard = detectScorecard(post).ok;
   const preview = post.content
     .split("\n")
     .filter((l) => l.trim().length > 0)
