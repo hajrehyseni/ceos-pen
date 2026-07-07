@@ -40,44 +40,61 @@ async function tryNativeShare(blob: Blob, filename: string): Promise<boolean> {
   }
 }
 
+function inIframe(): boolean {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
+
 /**
- * Download a Blob as a file. Works across desktop browsers and iOS Safari.
- * On iOS we prefer the native share sheet; on desktop we do a classic <a download> click.
+ * Download a Blob as a file. Works across desktop browsers, sandboxed iframes
+ * (Lovable preview), and iOS Safari.
  */
 export async function downloadBlob(blob: Blob, filename: string): Promise<void> {
-  // iOS: try share sheet first (best UX for Save to Files / Photos).
+  // iOS: prefer share sheet (native "Save to Files" / Photos).
   if (isIOS()) {
     const shared = await tryNativeShare(blob, filename);
     if (shared) return;
   }
 
   const url = URL.createObjectURL(blob);
+  let anchorClicked = false;
+
   try {
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     a.rel = "noopener";
-    // Some Radix portals set pointer-events:none on body; the click still fires
-    // because we dispatch it programmatically, but keep the node in the DOM briefly.
+    a.target = "_blank";
     document.body.appendChild(a);
     a.click();
     a.remove();
-
-    // iOS Safari fallback: if <a download> was ignored, at least open the file
-    // so Safari's viewer surfaces its own download button.
-    if (isIOS()) {
-      const win = window.open(url, "_blank");
-      if (!win) window.location.href = url;
-    }
+    anchorClicked = true;
   } catch (err) {
     console.error("[download] anchor click failed:", err);
-    // Last resort — navigate to blob so the browser handles it.
-    window.location.href = url;
-    throw err;
-  } finally {
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
   }
+
+  // Sandboxed iframes (like the Lovable preview) can silently block <a download>.
+  // Open the blob in a new tab as a guaranteed fallback so the browser at least
+  // surfaces the file to the user.
+  if (inIframe() || !anchorClicked) {
+    try {
+      const win = window.open(url, "_blank", "noopener");
+      if (!win) {
+        // Pop-up blocked → last resort, navigate current tab.
+        window.location.href = url;
+      }
+    } catch (err) {
+      console.error("[download] window.open failed:", err);
+      window.location.href = url;
+    }
+  }
+
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
+
 
 
 export async function exportNodeAsPng(node: HTMLElement, filename: string) {
