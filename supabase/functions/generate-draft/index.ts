@@ -910,6 +910,7 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
         score_breakdown: scoreBreakdown,
         cta_id: usedDefaultCta ? null : selectedCta.id,
         first_comment_text: firstCommentText,
+        prompt_version: activePromptVersion,
       })
       .select("id").single();
 
