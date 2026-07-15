@@ -54,18 +54,24 @@ serve(async (req) => {
   // Pick target posts: explicit one, or published posts in the last 24h missing variants.
   let posts: any[] = [];
   if (explicitId) {
-    const { data } = await supabase.from("posts").select("id, content, pillar").eq("id", explicitId).limit(1);
+    const { data } = await supabase
+      .from("posts")
+      .select("id, content, pillar, verification_status, engagement_estimate")
+      .eq("id", explicitId).limit(1);
     posts = data ?? [];
   } else {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data } = await supabase
       .from("posts")
-      .select("id, content, pillar, channel_variants(id)")
+      .select("id, content, pillar, verification_status, engagement_estimate, channel_variants(id)")
       .eq("status", "published")
       .gte("published_at", since)
       .limit(10);
     posts = (data ?? []).filter((p: any) => !p.channel_variants?.length);
   }
+
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const ANON = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
   let totalCost = 0;
   const results: any[] = [];
@@ -74,6 +80,11 @@ serve(async (req) => {
     try {
       const { parsed, usage } = await callClaude(claudeKey, `SOURCE POST:\n${p.content}`);
       totalCost += ((usage?.input_tokens ?? 0) * 3 + (usage?.output_tokens ?? 0) * 15) / 1_000_000;
+
+      // Auto-approve variants only when the source post cleared the same gate as auto-publish.
+      const autoApprove = p.verification_status === "passed" && p.engagement_estimate === "high";
+      const initialStatus = autoApprove ? "approved" : "draft";
+
       const rows = (["x", "threads", "bluesky"] as const)
         .filter((c) => typeof parsed[c] === "string" && parsed[c].length > 0)
         .map((c) => ({
@@ -81,17 +92,30 @@ serve(async (req) => {
           channel: c,
           variant_text: String(parsed[c]).slice(0, 4000),
           char_count: String(parsed[c]).length,
-          status: "draft",
+          status: initialStatus,
         }));
       if (rows.length) {
         await supabase.from("channel_variants").upsert(rows, { onConflict: "post_id,channel" });
       }
-      results.push({ post_id: p.id, variants: rows.length });
+
+      // Fire-and-forget the three publishers when variants are auto-approved.
+      if (autoApprove && rows.length) {
+        for (const fn of ["publish-x", "publish-bluesky", "publish-threads"]) {
+          fetch(`${SUPABASE_URL}/functions/v1/${fn}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey: ANON },
+            body: JSON.stringify({ trigger: "auto", post_id: p.id }),
+          }).catch((e) => console.error(`${fn} kick failed:`, e));
+        }
+      }
+
+      results.push({ post_id: p.id, variants: rows.length, auto_approved: autoApprove });
     } catch (e) {
       console.error(`repurpose ${p.id} failed:`, e);
       results.push({ post_id: p.id, error: String(e) });
     }
   }
+
 
   await supabase.from("agent_log").insert({
     action: "repurpose_channels",
