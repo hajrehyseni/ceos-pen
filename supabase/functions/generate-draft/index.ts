@@ -113,6 +113,14 @@ Usefulness booleans:
 
 overall = 0.30*hook + 0.18*specificity + 0.18*emotional + 0.22*shareability + 0.07*humour_fit + 0.05*lead_magnet_fit.
 
+predicted_reach_band — your honest bet on how this will perform on Hajrë's LinkedIn:
+- "breakout": rare — top-of-feed, quote-shared by operators, likely 20k+ impressions. Only when hook AND specificity AND emotional_pull are all >=8.
+- "high": strong performer, likely 5k-20k impressions. overall >=7.5 with a real hook.
+- "mid": ok but forgettable, likely 1k-5k impressions.
+- "low": scroll-past. Weak hook or generic body.
+
+verdict — ONE sentence in Hajrë's voice (British, warm, direct, no jargon). Explain the ceiling AND the single biggest fix. Example: "Punchy hook, but the middle drags — cut lines 4-5 and this could land properly."
+
 fixes: 1-4 SHORT, specific rewrites. Empty if overall >= 8.
 
 Return ONLY valid JSON, no markdown:
@@ -125,6 +133,8 @@ Return ONLY valid JSON, no markdown:
   "lead_magnet_fit": 0-10,
   "usefulness": { "actionable_takeaway": bool, "contrarian_angle": bool, "data_or_example_led": bool },
   "overall": 0-10,
+  "predicted_reach_band": "low"|"mid"|"high"|"breakout",
+  "verdict": "one sentence in Hajrë's voice",
   "fixes": ["...", "..."]
 }`;
 
@@ -151,6 +161,8 @@ type VerifierResult = {
   error?: string;
 };
 
+type ReachBand = "low" | "mid" | "high" | "breakout";
+
 type ScoreResult = {
   hook_strength: number;
   specificity: number;
@@ -164,6 +176,8 @@ type ScoreResult = {
     data_or_example_led: boolean;
   };
   overall: number;
+  predicted_reach_band: ReachBand;
+  verdict: string;
   fixes: string[];
   inputTokens: number;
   outputTokens: number;
