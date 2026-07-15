@@ -143,7 +143,11 @@ serve(async (req) => {
     }
 
     const now = new Date().toISOString();
-    await supabase.from("posts").update({ status: "published", published_at: now }).eq("id", post_id);
+    await supabase.from("posts").update({
+      status: "published",
+      published_at: now,
+      linkedin_urn: linkedinId,
+    }).eq("id", post_id);
 
     // ===== Auto first-comment with lead-magnet CTA =====
     let firstCommentResult: Record<string, unknown> | null = null;

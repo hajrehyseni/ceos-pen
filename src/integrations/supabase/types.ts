@@ -83,6 +83,50 @@ export type Database = {
         }
         Relationships: []
       }
+      comment_insights: {
+        Row: {
+          author_name: string | null
+          comment_urn: string | null
+          created_at: string
+          id: string
+          is_lead_signal: boolean
+          post_id: string | null
+          sentiment: string | null
+          text: string
+          topic: string | null
+        }
+        Insert: {
+          author_name?: string | null
+          comment_urn?: string | null
+          created_at?: string
+          id?: string
+          is_lead_signal?: boolean
+          post_id?: string | null
+          sentiment?: string | null
+          text: string
+          topic?: string | null
+        }
+        Update: {
+          author_name?: string | null
+          comment_urn?: string | null
+          created_at?: string
+          id?: string
+          is_lead_signal?: boolean
+          post_id?: string | null
+          sentiment?: string | null
+          text?: string
+          topic?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_insights_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cta_library: {
         Row: {
           copy: string
@@ -248,7 +292,9 @@ export type Database = {
           first_comment_text: string | null
           format: string
           id: string
+          linkedin_urn: string | null
           pillar: string
+          prompt_version: string | null
           published_at: string | null
           rejected_at: string | null
           rejection_reason: string | null
@@ -274,7 +320,9 @@ export type Database = {
           first_comment_text?: string | null
           format?: string
           id?: string
+          linkedin_urn?: string | null
           pillar: string
+          prompt_version?: string | null
           published_at?: string | null
           rejected_at?: string | null
           rejection_reason?: string | null
@@ -300,7 +348,9 @@ export type Database = {
           first_comment_text?: string | null
           format?: string
           id?: string
+          linkedin_urn?: string | null
           pillar?: string
+          prompt_version?: string | null
           published_at?: string | null
           rejected_at?: string | null
           rejection_reason?: string | null
@@ -331,6 +381,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      prompt_registry: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          template: string
+          version: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          template: string
+          version: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          template?: string
+          version?: string
+        }
+        Relationships: []
       }
       reply_drafts: {
         Row: {

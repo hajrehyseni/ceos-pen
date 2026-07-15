@@ -566,6 +566,39 @@ serve(async (req) => {
         .sort((a, b) => b.score - a.score).slice(0, 10);
     }
 
+    // Loser corpus — bottom quartile of scored posts, used as "avoid these" signal.
+    let losers: Array<{ content: string; score: number }> = [];
+    if (publishedPool && publishedPool.length >= 8) {
+      const ids = publishedPool.map((p) => p.id);
+      const { data: metricsRows2 } = await supabase
+        .from("post_metrics").select("post_id, likes, comments, reposts").in("post_id", ids);
+      const latest = new Map<string, { likes: number; comments: number; reposts: number }>();
+      (metricsRows2 ?? []).forEach((m: any) => {
+        latest.set(m.post_id, { likes: m.likes ?? 0, comments: m.comments ?? 0, reposts: m.reposts ?? 0 });
+      });
+      const scored = publishedPool.map((p) => {
+        const m = latest.get(p.id) ?? { likes: 0, comments: 0, reposts: 0 };
+        return { content: p.content as string, score: m.likes + 2 * m.comments + 3 * m.reposts };
+      }).sort((a, b) => a.score - b.score);
+      const cutoff = Math.max(1, Math.floor(scored.length / 4));
+      losers = scored.slice(0, cutoff).slice(0, 5);
+    }
+
+    // Resonance summary (rolling insight from comment_insights) — optional.
+    const { data: resonanceRow } = await supabase
+      .from("settings").select("value").eq("key", "resonance_summary").maybeSingle();
+    const resonanceSummary = resonanceRow?.value ?? null;
+
+    // Active system prompt from registry (falls back to hardcoded SYSTEM_PROMPT).
+    const { data: activePrompt } = await supabase
+      .from("prompt_registry").select("version, template")
+      .eq("name", "generate_draft_system").eq("active", true)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const activePromptVersion = activePrompt?.version ?? "v1";
+    const activeSystemPrompt = (activePrompt?.template && !activePrompt.template.startsWith("SEED_PLACEHOLDER"))
+      ? activePrompt.template
+      : SYSTEM_PROMPT;
+
     const todayStr = now.toLocaleDateString("en-GB", {
       weekday: "long", day: "numeric", month: "long", year: "numeric",
     });
@@ -591,6 +624,14 @@ serve(async (req) => {
 
     const winnersBlock = winners.length > 0
       ? `\nHIGH-PERFORMING PAST POSTS (match this energy — same voice, same level of specificity, same shape of hook):\n${winners.map((w, i) => `${i + 1}. (engagement ${w.score})\n"""${w.content}"""`).join("\n\n")}\n`
+      : "";
+
+    const losersBlock = losers.length > 0
+      ? `\nLOW-PERFORMING PAST POSTS (bottom quartile — do NOT reproduce their patterns, hooks, or shape. If your draft resembles any of these, rewrite it):\n${losers.map((l, i) => `${i + 1}. (engagement ${l.score})\n"""${l.content.slice(0, 400)}"""`).join("\n\n")}\n`
+      : "";
+
+    const resonanceBlock = resonanceSummary
+      ? `\nWHAT REAL READERS RESPOND TO (mined from recent LinkedIn comments — lean into these angles, avoid the friction points):\n${resonanceSummary}\n`
       : "";
 
     // CEO context block — keeps the agent grounded in Hajre's voice + worldview
@@ -628,8 +669,7 @@ ${newsSection}
 ${aiLandscapeBlock}${trendsBlock}
 VOICE SAMPLES (match this tone):
 ${voiceSection}
-${winnersBlock}
-PREVIOUSLY REJECTED (avoid these patterns):
+${winnersBlock}${losersBlock}${resonanceBlock}PREVIOUSLY REJECTED (avoid these patterns):
 ${rejectSection}`;
 
     // Recent openers (last 5 drafts) — feed into hook brainstorm for diversity
@@ -662,7 +702,7 @@ ${ctaInstruction}
 
 Write the full LinkedIn post for the ${pillarLabel} pillar. 150-350 words. Output ONLY the post text.`;
 
-    let firstDraft = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, SYSTEM_PROMPT, bodyUserMessage);
+    let firstDraft = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, activeSystemPrompt, bodyUserMessage);
     let postContent = firstDraft.text;
     let genInputTokens = firstDraft.inputTokens;
     let genOutputTokens = firstDraft.outputTokens;
@@ -686,7 +726,7 @@ Write the full LinkedIn post for the ${pillarLabel} pillar. 150-350 words. Outpu
 ${unsupported || "(rewrite cautiously)"}
 
 Rewrite the post. Remove or rephrase every unsupported claim. Do not invent companies, people, products, statistics, numbers, dates, or studies that aren't in the supplied sources.`;
-      const retryDraft = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, SYSTEM_PROMPT, retryMessage);
+      const retryDraft = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, activeSystemPrompt, retryMessage);
       postContent = retryDraft.text;
       genInputTokens += retryDraft.inputTokens;
       genOutputTokens += retryDraft.outputTokens;
@@ -710,7 +750,7 @@ Rewrite the post. Remove or rephrase every unsupported claim. Do not invent comp
 ${fixList}
 
 Keep zero-fabrication rules. Output ONLY the post text.`;
-      const rewrite = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, SYSTEM_PROMPT, rewriteMessage);
+      const rewrite = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, activeSystemPrompt, rewriteMessage);
       const candidate = rewrite.text;
       genInputTokens += rewrite.inputTokens;
       genOutputTokens += rewrite.outputTokens;
@@ -754,7 +794,7 @@ ${phraseList}
 - Voice score: ${voice.score}/10. Diagnostics: ${JSON.stringify(voice.diagnostics)}
 
 Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, don't, it's). Use shorter, varied sentences. Keep first person. British English. No em dashes. Make it sound like Hajre wrote it on the tube, not like ChatGPT. Output ONLY the post text.`;
-      const voiceRewrite = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, SYSTEM_PROMPT, voiceRewriteMessage);
+      const voiceRewrite = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, activeSystemPrompt, voiceRewriteMessage);
       const candidate = voiceRewrite.text.trim();
       genInputTokens += voiceRewrite.inputTokens;
       genOutputTokens += voiceRewrite.outputTokens;
@@ -870,6 +910,7 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
         score_breakdown: scoreBreakdown,
         cta_id: usedDefaultCta ? null : selectedCta.id,
         first_comment_text: firstCommentText,
+        prompt_version: activePromptVersion,
       })
       .select("id").single();
 
