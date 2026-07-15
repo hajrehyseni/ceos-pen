@@ -127,6 +127,39 @@ export type Database = {
           },
         ]
       }
+      competitor_watch: {
+        Row: {
+          active: boolean
+          created_at: string
+          handle: string
+          id: string
+          last_checked_at: string | null
+          name: string | null
+          notes: string | null
+          profile_url: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          handle: string
+          id?: string
+          last_checked_at?: string | null
+          name?: string | null
+          notes?: string | null
+          profile_url?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          handle?: string
+          id?: string
+          last_checked_at?: string | null
+          name?: string | null
+          notes?: string | null
+          profile_url?: string | null
+        }
+        Relationships: []
+      }
       cta_library: {
         Row: {
           copy: string
@@ -282,6 +315,7 @@ export type Database = {
       }
       posts: {
         Row: {
+          angle_embedding: Json | null
           approved_at: string | null
           content: string
           created_at: string
@@ -291,6 +325,7 @@ export type Database = {
           first_comment_posted_at: string | null
           first_comment_text: string | null
           format: string
+          hook_pattern: string | null
           id: string
           linkedin_urn: string | null
           pillar: string
@@ -310,6 +345,7 @@ export type Database = {
           voice_score: number | null
         }
         Insert: {
+          angle_embedding?: Json | null
           approved_at?: string | null
           content: string
           created_at?: string
@@ -319,6 +355,7 @@ export type Database = {
           first_comment_posted_at?: string | null
           first_comment_text?: string | null
           format?: string
+          hook_pattern?: string | null
           id?: string
           linkedin_urn?: string | null
           pillar: string
@@ -338,6 +375,7 @@ export type Database = {
           voice_score?: number | null
         }
         Update: {
+          angle_embedding?: Json | null
           approved_at?: string | null
           content?: string
           created_at?: string
@@ -347,6 +385,7 @@ export type Database = {
           first_comment_posted_at?: string | null
           first_comment_text?: string | null
           format?: string
+          hook_pattern?: string | null
           id?: string
           linkedin_urn?: string | null
           pillar?: string
@@ -457,6 +496,7 @@ export type Database = {
       trend_radar: {
         Row: {
           angle: string | null
+          angle_embedding: Json | null
           counter_take: string | null
           created_at: string
           expires_at: string
@@ -471,6 +511,7 @@ export type Database = {
         }
         Insert: {
           angle?: string | null
+          angle_embedding?: Json | null
           counter_take?: string | null
           created_at?: string
           expires_at?: string
@@ -485,6 +526,7 @@ export type Database = {
         }
         Update: {
           angle?: string | null
+          angle_embedding?: Json | null
           counter_take?: string | null
           created_at?: string
           expires_at?: string
@@ -591,6 +633,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      weekly_briefs: {
+        Row: {
+          created_at: string
+          id: string
+          metrics: Json
+          recommendations: Json
+          summary_md: string
+          week_start: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metrics?: Json
+          recommendations?: Json
+          summary_md: string
+          week_start: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metrics?: Json
+          recommendations?: Json
+          summary_md?: string
+          week_start?: string
+        }
+        Relationships: []
       }
     }
     Views: {
