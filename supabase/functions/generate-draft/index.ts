@@ -517,14 +517,32 @@ serve(async (req) => {
     const leadMagnetUrl = ceoCtx?.lead_magnet_url || DEFAULT_SCORECARD_URL;
     const forbiddenList = parseForbiddenList(ceoCtx?.forbidden_phrases || DEFAULT_FORBIDDEN.join(";"));
 
-    // Fresh trends (last 5 days), prefer today's pillar
+    // Fresh trends (last 5 days), prefer today's pillar. Dedup by
+    // cosine similarity of angle_embedding against the last 30 days
+    // of published posts so we stop rewriting the same angle.
     const { data: trendRows } = await supabase
       .from("trend_radar")
-      .select("title, summary, angle, counter_take, source_url, heat_score, pillar")
+      .select("title, summary, angle, counter_take, source_url, heat_score, pillar, angle_embedding")
       .gte("expires_at", new Date().toISOString())
       .order("heat_score", { ascending: false })
-      .limit(8);
+      .limit(20);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+    const { data: recentPostRows } = await supabase
+      .from("posts")
+      .select("angle_embedding")
+      .eq("status", "published")
+      .gte("published_at", thirtyDaysAgo)
+      .not("angle_embedding", "is", null)
+      .limit(40);
+    const recentEmbeddings: number[][] = (recentPostRows ?? [])
+      .map((r: any) => r.angle_embedding)
+      .filter((e: any) => Array.isArray(e));
+    const { maxSimilarity } = await import("../_shared/embeddings.ts");
     const relevantTrends = (trendRows ?? [])
+      .filter((t: any) => {
+        if (!Array.isArray(t.angle_embedding) || recentEmbeddings.length === 0) return true;
+        return maxSimilarity(t.angle_embedding, recentEmbeddings) < 0.9;
+      })
       .sort((a: any, b: any) => {
         const aMatch = a.pillar === pillar ? 1 : 0;
         const bMatch = b.pillar === pillar ? 1 : 0;
