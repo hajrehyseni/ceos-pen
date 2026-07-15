@@ -4,6 +4,7 @@ export const PILLARS = {
   academic_research: { label: "Academic Research", color: "pillar-academic" },
   ceo_journey: { label: "CEO Journey", color: "pillar-ceo" },
   curated_commentary: { label: "Curated Commentary", color: "pillar-commentary" },
+  tool_tips: { label: "Tool Tips", color: "pillar-ai" },
 } as const;
 
 export type PillarKey = keyof typeof PILLARS;

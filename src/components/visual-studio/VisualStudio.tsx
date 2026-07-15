@@ -2,16 +2,17 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Images, MessageSquare, PanelTop, PieChart, Wand2 } from "lucide-react";
+import { BarChart3, Images, Laugh, MessageSquare, PanelTop, PieChart, Wand2 } from "lucide-react";
 import { CarouselPreview } from "./CarouselPreview";
 import { InfographicPreview } from "./InfographicPreview";
 import { ImagePostPreview } from "./ImagePostPreview";
 import { ChartPreview } from "./ChartPreview";
 import { PollPreview } from "./PollPreview";
 import { ReplyAssistant } from "./ReplyAssistant";
+import { MemePreview } from "./MemePreview";
 
-// Delivery order: Carousel → Poll → Reply → Image → Infographic → Chart
 const TABS = [
+  { value: "meme", label: "Meme", Icon: Laugh },
   { value: "carousel", label: "Carousel", Icon: Images },
   { value: "poll", label: "Poll", Icon: PieChart },
   { value: "reply", label: "Reply", Icon: MessageSquare },
@@ -22,7 +23,7 @@ const TABS = [
 
 export function VisualStudio({ postId, draftContent }: { postId: string; draftContent: string }) {
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState("carousel");
+  const [tab, setTab] = useState("meme");
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -48,6 +49,7 @@ export function VisualStudio({ postId, draftContent }: { postId: string; draftCo
               </TabsTrigger>
             ))}
           </TabsList>
+          <TabsContent value="meme" className="pt-3"><MemePreview postId={postId} draftContent={draftContent} /></TabsContent>
           <TabsContent value="carousel" className="pt-3"><CarouselPreview postId={postId} draftContent={draftContent} /></TabsContent>
           <TabsContent value="poll" className="pt-3"><PollPreview postId={postId} draftContent={draftContent} /></TabsContent>
           <TabsContent value="reply" className="pt-3"><ReplyAssistant /></TabsContent>

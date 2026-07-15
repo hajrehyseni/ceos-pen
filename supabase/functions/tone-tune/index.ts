@@ -40,6 +40,10 @@ const TWEAKS: Record<string, { label: string; directive: string }> = {
     label: "Sound more like Hajrë",
     directive: `Rewrite so it reads like Hajrë wrote it on the tube: contractions everywhere, short sentences, the occasional fragment, a dry British observation, first person, no em dashes, no AI-isms. Keep every fact intact — do not invent companies, numbers, or studies.`,
   },
+  rewrite_as_story: {
+    label: "Rewrite as story",
+    directive: `Rewrite the post as a STORY MODE draft optimised for phone reading. Shape it as: LINE 1 = scene (one specific moment, place, or line of dialogue). LINE 2-3 = tension (what was at stake or what went wrong). MIDDLE = the turn (what changed or what she noticed). CLOSE = one-sentence lesson plus a soft next step in Hajrë's voice. Rules: 180-260 words total, short paragraphs of no more than 2 sentences each, blank line between beats for whitespace, contractions, British English, no em dashes, no bullet lists, no headings. Keep every existing fact — do not invent people, companies, numbers, or studies. Output ONLY the rewritten post.`,
+  },
   add_lead_magnet_first_comment: {
     label: "Scorecard in first comment",
     directive: `Do NOT change the post body. Instead, write a single short first-comment line that points to https://build.londonra.com as a helpful next step, in Hajrë's voice. Output the comment text ONLY, wrapped exactly like this: <<<FIRST_COMMENT>>>your comment here<<<END>>>. Do not output anything else.`,
@@ -109,6 +113,7 @@ serve(async (req) => {
       updates.first_comment_text = sanitizeDraftContent(comment).text;
     } else {
       updates.content = sanitizeDraftContent(r.text.trim()).text;
+      if (tweak === "rewrite_as_story") updates.format = "story";
     }
 
     const { error: updErr } = await supabase.from("posts").update(updates).eq("id", post_id);

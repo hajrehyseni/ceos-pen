@@ -67,7 +67,7 @@ export async function callClaudeJSON<T = any>(
 
 export async function saveAsset(opts: {
   postId: string | null;
-  kind: "carousel" | "infographic" | "image_post" | "chart" | "poll" | "reply";
+  kind: "carousel" | "infographic" | "image_post" | "chart" | "poll" | "reply" | "meme";
   payload: any;
 }) {
   const sb = getSupabase();

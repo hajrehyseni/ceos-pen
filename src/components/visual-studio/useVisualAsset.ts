@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type VisualKind = "carousel" | "infographic" | "image_post" | "chart" | "poll";
+export type VisualKind = "carousel" | "infographic" | "image_post" | "chart" | "poll" | "meme";
 
 export interface VisualAsset {
   id: string;
@@ -19,6 +19,7 @@ const FN_MAP: Record<VisualKind, string> = {
   image_post: "gen-image-post",
   chart: "gen-chart",
   poll: "gen-poll",
+  meme: "gen-meme",
 };
 
 export function useVisualAsset(postId: string, kind: VisualKind) {
