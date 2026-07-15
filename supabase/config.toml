@@ -43,3 +43,12 @@ verify_jwt = false
 
 [functions.weekly-digest]
 verify_jwt = false
+
+[functions.publish-x]
+verify_jwt = false
+
+[functions.publish-bluesky]
+verify_jwt = false
+
+[functions.publish-threads]
+verify_jwt = false
