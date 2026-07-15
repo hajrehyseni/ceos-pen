@@ -1,93 +1,124 @@
-# CEO Pen — Audit & Improvement Plan
 
-## What's strong today
-- **Full loop covered**: research → draft → fact-check → score → tone-tune → visual studio → auto-publish → analytics.
-- **No-fabrication spine**: verifier + virality/usefulness scorer gate auto-publish; Hajrë-voice enforced in prompts.
-- **Content variety**: 7 pillars, story mode, memes, carousels, charts, infographics, tool-tips, polls.
-- **Ops-grade backend**: pg_cron orchestration, single-user password gate, LinkedIn UGC publish, cost tracking.
-- **Winner-informed generation**: `harvest-winners` + `repurpose-winners` + closest-winner peek in scorer v2.
+# CEO Pen — Audit & Next-Phase Plan
 
-## Gaps & risks found in the audit
+## 1. What's shipped and working
 
-### 1. Content quality & voice drift
-- Scoring is Claude-judging-Claude — no external benchmark, no human-in-the-loop calibration.
-- Story mode and memes have no separate scorer tuning; they inherit the generic rubric.
-- No "kill switch" for pillars that consistently under-perform — pillars are hard-coded to weekdays.
+**Content loop (solid)**
+- Research → Draft → Verify → Score → Tone-tune → Visual studio → Publish → Analytics → Comment mining → Weekly brief.
+- 26 edge functions covering the whole loop. Auto-publish gated on `verification_status='passed'` AND `engagement_estimate='high'`. First-comment auto-post is live. LinkedIn UGC publish + sanitiser.
+- Phase B (Reddit / arXiv / Competitor collectors, embedding dedup) and Phase D (weekly brief, hook leaderboard, heatmap analytics) shipped.
+- Phase C shipped the generation half of cross-posting: `repurpose-channel` writes X/Threads/Bluesky variants into `channel_variants` every 15 min, plus Sunday newsletter digest via Resend.
 
-### 2. Distribution is single-channel
-- LinkedIn only. No X/Threads/Bluesky cross-posting, no newsletter digest, no repurposing into YouTube Shorts / Reels scripts.
-- No reply/DM triage beyond `reply-assistant` (which isn't wired into a real inbox loop).
+**Voice + safety**
+- Hajrë voice, no-fabrication rule, forbidden-phrases list, hook A/B, prompt registry, comment-sentiment miner.
 
-### 3. Feedback loop is thin
-- `post_metrics` exist but nothing closes the loop back into the prompt: winners feed few-shot, losers don't feed a "don't do this" list.
-- No A/B on hooks — one hook per draft, no variant testing.
-- No comment-sentiment mining to detect what actually resonates vs. what merely gets likes.
+## 2. Gaps I found (what must be improved)
 
-### 4. Research is shallow
-- RSS + Hacker News only. No LinkedIn trending, no Reddit (r/artificial, r/LocalLLaMA), no arXiv, no Product Hunt, no Google Trends, no competitor CEO tracking.
-- No dedup across days — same story can be drafted twice in a week.
-- No "angle memory" — the system may reuse an angle it already published.
+### A. Cross-channel is 50% built — biggest miss
+`channel_variants` rows are generated but:
+- No UI surfaces them anywhere (no page shows X/Threads/Bluesky drafts).
+- No publisher — nothing actually posts them. X connector isn't linked. No Bluesky/Threads adapters.
+- No per-channel scoring or fact-check of the shortened variants.
+- No thread splitter/character validator — a 300-char tweet in a "thread" string will just fail silently.
 
-### 5. Draft queue UX
-- 456-line `DraftCard.tsx` is doing too much; no bulk actions (approve all "high", reject all "low").
-- No side-by-side variant comparison, no diff view when tone-tuning.
-- No mobile-optimised swipe review (this is a mobile-first CEO product per project memory).
+### B. Draft-queue UX (Phase E never shipped)
+- `DraftCard.tsx` is 456 lines and doing too much (edit, tune, visualise, verify, publish, score, first-comment).
+- No mobile swipe review (project memory says mobile-first CEO product).
+- No bulk actions (approve-all-high, reject-all-low). No side-by-side variant/tone diff.
 
-### 6. Analytics is descriptive, not prescriptive
-- Shows what happened, not "here's what to double-down on next week".
-- No pillar × time-of-day heatmap, no hook-pattern leaderboard, no cost-per-engaged-impression.
-
-### 7. Publishing intelligence
-- Auto-publish uses fixed UK slots; no dynamic slot picking based on recent audience-active windows.
-- No first-comment auto-post (major LinkedIn algo lever) — links/CTAs still live in the main post.
-- No "hold for event" logic (e.g. delay when a bigger news beat drops the same hour).
-
-### 8. Safety / trust
-- Fact-checker is a second Claude pass — no external citation store, no source URL persisted with the claim.
+### C. Trust & Safety (Phase F never shipped)
+- Fact-check is still Claude-judging-Claude. No persisted source URLs per claim, no rendered footnotes.
 - No PII/defamation guard on named humans/companies.
-- No versioned prompt registry — prompt edits aren't A/B testable or revertable.
+- No versioned prompt A/B; `prompt_registry` exists but nothing writes `prompt_version` onto posts or compares winners by version.
 
----
+### D. Publishing intelligence still coarse
+- `slot-picker.ts` helper exists but nothing calls it — `generate-draft` still uses fixed UK slots.
+- No "hold for event" logic (delay if a bigger beat drops the same hour).
+- Auto-publish window in Settings copy says "08:00–12:00 UTC Mon–Fri" — narrower than reality; needs to reflect dynamic slots when we wire them.
 
-## Recommended roadmap (prioritised)
+### E. Analytics gaps
+- `post_metrics` is written by hand or by scheduled job? I don't see a `sync-linkedin-metrics` function. Weekly-brief maths depend on it — without a metric pull, cost-per-engaged and heatmaps drift to zero.
+- No cross-channel analytics (X impressions/likes not merged into the picture).
 
-### Phase A — Close the feedback loop (highest ROI)
-1. **Loser corpus + anti-patterns**: harvest bottom-quartile posts, extract shared traits, inject as "avoid" block in `generate-draft`.
-2. **Hook A/B**: generate 3 hooks per draft, score each, keep the winner; log which hook family wins over time.
-3. **Comment-sentiment miner**: nightly job pulls comments on published posts, classifies sentiment/topic, updates a "what resonates" table that feeds the next prompt.
-4. **Prompt registry**: version prompts in a table; every draft records `prompt_version`; enables true A/B and rollback.
+### F. Operational hygiene
+- 17 RLS-permissive warnings (all `USING (true)`). Acceptable for a single-user password gate, but leaves the door open if you ever add a teammate. Worth a proper roles table before then.
+- `harvest-winners` and `repurpose-winners` exist but I can't confirm they're on cron (need to verify in the cron audit).
+- No error alerting — silent failures land in `agent_log` but nothing pings you.
+- No dead-letter / retry pattern for LinkedIn 5xx.
 
-### Phase B — Smarter research
-1. Add Reddit, arXiv, Product Hunt, Google Trends collectors alongside RSS.
-2. **Angle-memory dedup**: embed each published post; block new drafts whose cosine similarity > 0.85 against last 30 days.
-3. **Competitor CEO watch**: track 5–10 named voices; surface their angles in Trend Radar with "counter-take" prompt.
+### G. Product surface for a busy CEO
+- No unified "today" screen: what published, what's queued, what needs my approval, what one insight to act on.
+- No "kill switch" per pillar even though pillars are hard-coded to weekdays.
+- No inbox/DM triage loop (`reply-assistant` isn't wired to a real inbox surface).
 
-### Phase C — Distribution multiplier
-1. **First-comment auto-post** on LinkedIn (link, lead magnet, CTA) — single biggest algo win.
-2. **Cross-post adapter**: same draft → X thread + Bluesky + Threads variants generated by a `repurpose-channel` function.
-3. **Weekly newsletter digest**: auto-compile top 3 published posts + one exclusive insight, email via Resend.
-4. **Dynamic slot picker**: pick publish slot from the last 30 days' engagement heatmap instead of fixed times.
+## 3. Priority order (what I recommend building next, in this order)
 
-### Phase D — Prescriptive analytics
-1. Pillar × time-of-day heatmap.
-2. Hook-pattern leaderboard (question / stat / contrarian / story-opener).
-3. Weekly "CEO brief" card: "Double down on X, retire Y, test Z" — generated from the analytics.
-4. Cost-per-engaged-impression metric.
+I've grouped everything into six phases. Phase G is the headline — X publishing — because it's the biggest visible win and the current unfinished promise.
 
-### Phase E — Draft queue UX (mobile-first)
-1. Swipeable card review on mobile (right = approve, left = reject, up = tweak).
-2. Bulk actions on desktop ("approve all high-scoring", "reject all low").
-3. Side-by-side variant / tone-tune diff view.
-4. Split the 456-line `DraftCard.tsx` into smaller composable pieces.
+```text
+G. X + Bluesky + Threads publishing (finish Phase C properly)   ← START HERE
+H. Mobile-first Draft Queue UX (Phase E)
+I. LinkedIn + X metrics sync + cross-channel analytics
+J. Trust & Safety v2 (Phase F: citations, PII guard, prompt A/B)
+K. Command Centre "Today" + kill switches + alerting
+L. Reply/DM triage loop
+```
 
-### Phase F — Trust & safety
-1. Persist source URLs per claim inside `score_breakdown.sources[]`; render as footnotes in the draft.
-2. Named-entity guard: any claim about a specific person/company must have a matching source URL or it fails verification.
-3. External fact-check pass using web search on top-3 claims (not just Claude self-check).
+## 4. Phase G — X + Bluesky + Threads publishing (headline)
 
----
+**Why now:** you already generate the variants; you just can't send them. Small surface, huge leverage.
 
-## Suggested starting point
-**Phase A + first-comment auto-post from Phase C.** Both are small-surface, high-leverage, and directly compound existing infrastructure (post_metrics, publish-to-linkedin) without new UI risk. Everything else can follow in order.
+**Build:**
+1. **X (Twitter) publisher** — connect the X connector (OAuth 1.0a user context — required for write). New edge fn `publish-x` that:
+   - Reads `channel_variants` row for channel='x', status='approved'.
+   - Splits the `\n---\n` separator into a real thread, validates each tweet ≤275 chars, publishes via `POST /2/tweets` with `reply.in_reply_to_tweet_id` chaining.
+   - Writes `external_url`, `published_at`, `status='published'` back.
+   - Logs cost/tokens/errors to `agent_log`.
+2. **Bluesky publisher** — new fn `publish-bluesky` using AT Protocol (`com.atproto.repo.createRecord`), app password auth. Single post.
+3. **Threads publisher** — Meta Threads API (`/me/threads` container → publish). Single post. Needs Meta app + long-lived token.
+4. **Auto-publish integration** — after LinkedIn publishes and `repurpose-channel` runs, mark variants `status='approved'` automatically only when the source post had `engagement_estimate='high'` AND `verification_status='passed'` (same gate as LinkedIn). Everything else stays `draft` for manual review.
+5. **UI: Channels tab in Published view** — table per post showing LinkedIn ✓, X status, Bluesky status, Threads status, with "Approve & publish" / "Edit" / "Skip" per channel. Copy-to-clipboard fallback for any channel not yet connected.
+6. **Per-channel scorer pass** — mini scorer on each variant (≤200 tokens) checking char limits, no hashtags/emojis, hook strength. Reject below threshold.
+7. **Secrets & connectors** to request from you:
+   - X: connect the X connector (OAuth 1.0a with Read+Write permission — default is Read only, this is the #1 cause of 401s).
+   - Bluesky: `BLUESKY_HANDLE`, `BLUESKY_APP_PASSWORD`.
+   - Threads: `THREADS_ACCESS_TOKEN`, `THREADS_USER_ID` (via Meta Developer app).
 
-Tell me which phase (or which specific items) to build first and I'll turn it into an implementation plan.
+## 5. Phase H — Mobile-first Draft Queue UX
+
+- Split `DraftCard.tsx` into: `DraftHeader`, `DraftBody`, `DraftScore`, `DraftActions`, `DraftEditPanel`, `DraftVisualPanel`.
+- Mobile: swipeable card stack — right approve, left reject, up "tweak". Uses existing `HeroDraftCard` as base.
+- Desktop: bulk actions bar — "Approve all High", "Reject all Low", "Regenerate all Failed-verification".
+- Side-by-side diff view for tone-tune and hook variants (already stored in `hook_variants`).
+
+## 6. Phase I — Metrics sync + cross-channel analytics
+
+- New `sync-linkedin-metrics` cron (hourly) hitting LinkedIn `/socialActions` + `/organizationalEntityShareStatistics` (or member-share equivalent), writing to `post_metrics`.
+- New `sync-x-metrics` for X public metrics.
+- Extend `AnalyticsView` heatmap to add a channel filter chip (LinkedIn / X / Bluesky / Threads / All).
+- Add cost-per-engaged-impression card that spans channels.
+
+## 7. Phase J — Trust & Safety v2
+
+- Persist source URLs per claim inside `score_breakdown.sources[]`; render as footnotes in the draft body preview.
+- Named-entity guard: any claim mentioning a specific person/company must have a matching source URL or verifier fails it.
+- Wire `prompt_registry.version` onto every generated post; add a weekly A/B card in Analytics: "Prompt v3 outperforms v2 on virality by +18%".
+- External fact-check pass (Firecrawl search on top-3 claims) for pillars where reputational risk matters (`ceo_journey`, `curated_commentary`).
+
+## 8. Phase K — Command Centre "Today" + hygiene
+
+- New `/today` route: what published in last 24h, what's queued for the next 24h, what needs approval, one action from the latest weekly brief.
+- Pillar kill switches on Settings (soft-disable a pillar until date X).
+- Slack/email alert on any `agent_log` action ending in `_failed` more than 3× in an hour (via Resend + a tiny webhook or Slack connector).
+- Wire the existing `slot-picker.ts` into `generate-draft` so `suggested_time` reflects real audience windows; drop the fixed slot list.
+
+## 9. Phase L — Reply/DM triage loop
+
+- Poll LinkedIn comments on last 14 days of published posts, group by post, draft a reply for each using `reply-assistant`, surface in a Triage view for one-tap send.
+- Same pattern for X replies once Phase G is live.
+
+## 10. Suggested first batch
+
+**Phase G end-to-end** (X + Bluesky + Threads publish, Channels UI, auto-approve gate) — one shippable increment that turns CEO Pen from "LinkedIn poster" into a genuine multi-channel distribution engine. I'd bundle a small slice of Phase I with it: cross-channel status column in the Published view.
+
+Tell me if you want me to lead with all of Phase G, or narrow it to just X for the first ship (Bluesky/Threads follow-up).
