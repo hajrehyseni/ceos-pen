@@ -914,6 +914,11 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
       sanitiser: sanitiseResult.diagnostics,
     };
 
+    const { classifyHookPattern } = await import("../_shared/hook-pattern.ts");
+    const { embedOne } = await import("../_shared/embeddings.ts");
+    const hookPattern = classifyHookPattern(postContent);
+    const postAngleEmbedding = await embedOne(postContent.split("\n").slice(0, 3).join(" "));
+
     const { data: newPost, error: postError } = await supabase
       .from("posts").insert({
         content: postContent, pillar, status: "draft", format: "text",
@@ -929,6 +934,8 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
         cta_id: usedDefaultCta ? null : selectedCta.id,
         first_comment_text: firstCommentText,
         prompt_version: activePromptVersion,
+        hook_pattern: hookPattern,
+        angle_embedding: postAngleEmbedding,
       })
       .select("id").single();
 
