@@ -83,6 +83,50 @@ export type Database = {
         }
         Relationships: []
       }
+      channel_variants: {
+        Row: {
+          channel: string
+          char_count: number
+          created_at: string
+          external_url: string | null
+          id: string
+          post_id: string
+          published_at: string | null
+          status: string
+          variant_text: string
+        }
+        Insert: {
+          channel: string
+          char_count?: number
+          created_at?: string
+          external_url?: string | null
+          id?: string
+          post_id: string
+          published_at?: string | null
+          status?: string
+          variant_text: string
+        }
+        Update: {
+          channel?: string
+          char_count?: number
+          created_at?: string
+          external_url?: string | null
+          id?: string
+          post_id?: string
+          published_at?: string | null
+          status?: string
+          variant_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_variants_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comment_insights: {
         Row: {
           author_name: string | null
@@ -271,6 +315,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      newsletter_digests: {
+        Row: {
+          created_at: string
+          html: string
+          id: string
+          recipients: number
+          subject: string
+          week_start: string
+        }
+        Insert: {
+          created_at?: string
+          html: string
+          id?: string
+          recipients?: number
+          subject: string
+          week_start: string
+        }
+        Update: {
+          created_at?: string
+          html?: string
+          id?: string
+          recipients?: number
+          subject?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
+      newsletter_subscribers: {
+        Row: {
+          active: boolean
+          created_at: string
+          email: string
+          id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          email: string
+          id?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          email?: string
+          id?: string
+        }
+        Relationships: []
       }
       post_metrics: {
         Row: {
