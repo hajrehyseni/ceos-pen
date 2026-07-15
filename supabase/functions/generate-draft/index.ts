@@ -702,7 +702,7 @@ ${ctaInstruction}
 
 Write the full LinkedIn post for the ${pillarLabel} pillar. 150-350 words. Output ONLY the post text.`;
 
-    let firstDraft = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, SYSTEM_PROMPT, bodyUserMessage);
+    let firstDraft = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, activeSystemPrompt, bodyUserMessage);
     let postContent = firstDraft.text;
     let genInputTokens = firstDraft.inputTokens;
     let genOutputTokens = firstDraft.outputTokens;
@@ -726,7 +726,7 @@ Write the full LinkedIn post for the ${pillarLabel} pillar. 150-350 words. Outpu
 ${unsupported || "(rewrite cautiously)"}
 
 Rewrite the post. Remove or rephrase every unsupported claim. Do not invent companies, people, products, statistics, numbers, dates, or studies that aren't in the supplied sources.`;
-      const retryDraft = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, SYSTEM_PROMPT, retryMessage);
+      const retryDraft = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, activeSystemPrompt, retryMessage);
       postContent = retryDraft.text;
       genInputTokens += retryDraft.inputTokens;
       genOutputTokens += retryDraft.outputTokens;
@@ -750,7 +750,7 @@ Rewrite the post. Remove or rephrase every unsupported claim. Do not invent comp
 ${fixList}
 
 Keep zero-fabrication rules. Output ONLY the post text.`;
-      const rewrite = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, SYSTEM_PROMPT, rewriteMessage);
+      const rewrite = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, activeSystemPrompt, rewriteMessage);
       const candidate = rewrite.text;
       genInputTokens += rewrite.inputTokens;
       genOutputTokens += rewrite.outputTokens;
@@ -794,7 +794,7 @@ ${phraseList}
 - Voice score: ${voice.score}/10. Diagnostics: ${JSON.stringify(voice.diagnostics)}
 
 Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, don't, it's). Use shorter, varied sentences. Keep first person. British English. No em dashes. Make it sound like Hajre wrote it on the tube, not like ChatGPT. Output ONLY the post text.`;
-      const voiceRewrite = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, SYSTEM_PROMPT, voiceRewriteMessage);
+      const voiceRewrite = await callClaude(CLAUDE_API_KEY, CLAUDE_GENERATION_MODEL, activeSystemPrompt, voiceRewriteMessage);
       const candidate = voiceRewrite.text.trim();
       genInputTokens += voiceRewrite.inputTokens;
       genOutputTokens += voiceRewrite.outputTokens;
