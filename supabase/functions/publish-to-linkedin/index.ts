@@ -185,6 +185,15 @@ serve(async (req) => {
       details: { post_id, linkedin_id: linkedinId, published_at: now, resolved_urn: personUrn, api: "ugcPosts", first_comment: firstCommentResult },
     });
 
+    // Fire-and-forget: mine comments on all recent posts so the resonance summary
+    // stays fresh. Waits a bit so any early comments on this new post are captured too.
+    try {
+      supabase.functions.invoke("mine-comments", { body: { trigger: "post_published", post_id } })
+        .catch((err) => console.error("mine-comments invoke failed:", err));
+    } catch (err) {
+      console.error("mine-comments dispatch threw:", err);
+    }
+
     return new Response(
       JSON.stringify({ status: "success", post_id, linkedin_id: linkedinId, resolved_urn: personUrn, api: "ugcPosts" }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
