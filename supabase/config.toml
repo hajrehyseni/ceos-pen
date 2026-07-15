@@ -37,3 +37,9 @@ verify_jwt = false
 
 [functions.weekly-brief]
 verify_jwt = false
+
+[functions.repurpose-channel]
+verify_jwt = false
+
+[functions.weekly-digest]
+verify_jwt = false
