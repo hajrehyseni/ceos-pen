@@ -14,3 +14,10 @@ verify_jwt = false
 
 [functions.collect-news]
 verify_jwt = false
+
+[functions.collect-tool-tips]
+verify_jwt = false
+
+[functions.gen-tool-tip]
+verify_jwt = false
+
