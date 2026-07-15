@@ -547,7 +547,7 @@ serve(async (req) => {
       .eq("status", "published")
       .lte("published_at", sevenDaysAgo).gte("published_at", ninetyDaysAgo);
 
-    let winners: Array<{ content: string; score: number }> = [];
+    let winners: Array<{ id: string; content: string; score: number }> = [];
     if (publishedPool && publishedPool.length > 0) {
       const ids = publishedPool.map((p) => p.id);
       const { data: metricsRows } = await supabase
@@ -560,10 +560,10 @@ serve(async (req) => {
       winners = publishedPool
         .map((p) => {
           const m = latestByPost.get(p.id) ?? { likes: 0, comments: 0, reposts: 0 };
-          return { content: p.content as string, score: m.likes + 2 * m.comments + 3 * m.reposts };
+          return { id: p.id as string, content: p.content as string, score: m.likes + 2 * m.comments + 3 * m.reposts };
         })
         .filter((w) => w.score > 0)
-        .sort((a, b) => b.score - a.score).slice(0, 3);
+        .sort((a, b) => b.score - a.score).slice(0, 10);
     }
 
     const todayStr = now.toLocaleDateString("en-GB", {
