@@ -22,6 +22,26 @@ export interface Post {
   cta_id?: string | null;
   first_comment_text?: string | null;
   first_comment_posted_at?: string | null;
+  hook_pattern?: string | null;
+}
+
+export interface WeeklyBrief {
+  id: string;
+  week_start: string;
+  summary_md: string;
+  metrics: {
+    this_week_posts?: number;
+    last_week_posts?: number;
+    this_week_engaged?: number;
+    last_week_engaged?: number;
+    this_week_impressions?: number;
+    this_week_cost_usd?: number;
+    last_week_cost_usd?: number;
+    cost_per_engaged_this_week?: number | null;
+    cost_per_engaged_last_week?: number | null;
+  };
+  recommendations: string[];
+  created_at: string;
 }
 
 export interface CeoContext {

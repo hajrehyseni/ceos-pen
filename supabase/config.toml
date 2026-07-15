@@ -25,3 +25,15 @@ verify_jwt = false
 verify_jwt = false
 
 
+
+[functions.collect-reddit]
+verify_jwt = false
+
+[functions.collect-arxiv]
+verify_jwt = false
+
+[functions.collect-competitors]
+verify_jwt = false
+
+[functions.weekly-brief]
+verify_jwt = false

@@ -517,14 +517,32 @@ serve(async (req) => {
     const leadMagnetUrl = ceoCtx?.lead_magnet_url || DEFAULT_SCORECARD_URL;
     const forbiddenList = parseForbiddenList(ceoCtx?.forbidden_phrases || DEFAULT_FORBIDDEN.join(";"));
 
-    // Fresh trends (last 5 days), prefer today's pillar
+    // Fresh trends (last 5 days), prefer today's pillar. Dedup by
+    // cosine similarity of angle_embedding against the last 30 days
+    // of published posts so we stop rewriting the same angle.
     const { data: trendRows } = await supabase
       .from("trend_radar")
-      .select("title, summary, angle, counter_take, source_url, heat_score, pillar")
+      .select("title, summary, angle, counter_take, source_url, heat_score, pillar, angle_embedding")
       .gte("expires_at", new Date().toISOString())
       .order("heat_score", { ascending: false })
-      .limit(8);
+      .limit(20);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+    const { data: recentPostRows } = await supabase
+      .from("posts")
+      .select("angle_embedding")
+      .eq("status", "published")
+      .gte("published_at", thirtyDaysAgo)
+      .not("angle_embedding", "is", null)
+      .limit(40);
+    const recentEmbeddings: number[][] = (recentPostRows ?? [])
+      .map((r: any) => r.angle_embedding)
+      .filter((e: any) => Array.isArray(e));
+    const { maxSimilarity } = await import("../_shared/embeddings.ts");
     const relevantTrends = (trendRows ?? [])
+      .filter((t: any) => {
+        if (!Array.isArray(t.angle_embedding) || recentEmbeddings.length === 0) return true;
+        return maxSimilarity(t.angle_embedding, recentEmbeddings) < 0.9;
+      })
       .sort((a: any, b: any) => {
         const aMatch = a.pillar === pillar ? 1 : 0;
         const bMatch = b.pillar === pillar ? 1 : 0;
@@ -896,6 +914,11 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
       sanitiser: sanitiseResult.diagnostics,
     };
 
+    const { classifyHookPattern } = await import("../_shared/hook-pattern.ts");
+    const { embedOne } = await import("../_shared/embeddings.ts");
+    const hookPattern = classifyHookPattern(postContent);
+    const postAngleEmbedding = await embedOne(postContent.split("\n").slice(0, 3).join(" "));
+
     const { data: newPost, error: postError } = await supabase
       .from("posts").insert({
         content: postContent, pillar, status: "draft", format: "text",
@@ -911,6 +934,8 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
         cta_id: usedDefaultCta ? null : selectedCta.id,
         first_comment_text: firstCommentText,
         prompt_version: activePromptVersion,
+        hook_pattern: hookPattern,
+        angle_embedding: postAngleEmbedding,
       })
       .select("id").single();
 
