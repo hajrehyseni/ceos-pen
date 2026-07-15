@@ -211,11 +211,33 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
         const sb = post.score_breakdown as any;
         const overall = Number(post.virality_score);
         const passes = !!sb.passes_bar;
+        const band: "low" | "mid" | "high" | "breakout" =
+          sb.predicted_reach_band === "breakout" || sb.predicted_reach_band === "high" ||
+          sb.predicted_reach_band === "mid" || sb.predicted_reach_band === "low"
+            ? sb.predicted_reach_band
+            : overall >= 8.5 ? "breakout" : overall >= 7.5 ? "high" : overall >= 6 ? "mid" : "low";
+        const verdict: string = typeof sb.verdict === "string" ? sb.verdict : "";
+        const closest = sb.closest_winner as
+          | { id: string; similarity: number; excerpt: string; score: number }
+          | null
+          | undefined;
         const tone = passes
           ? "border-success/40 bg-success/10 text-success"
           : overall >= 6.5
             ? "border-warning/40 bg-warning/10 text-warning"
             : "border-destructive/40 bg-destructive/10 text-destructive";
+        const bandStyle: Record<typeof band, string> = {
+          breakout: "bg-success/20 text-success border-success/40",
+          high: "bg-success/15 text-success border-success/30",
+          mid: "bg-warning/15 text-warning border-warning/30",
+          low: "bg-destructive/15 text-destructive border-destructive/30",
+        };
+        const bandCopy: Record<typeof band, string> = {
+          breakout: "Breakout · 20k+ likely",
+          high: "High reach · 5-20k",
+          mid: "Mid reach · 1-5k",
+          low: "Low reach · scroll-past",
+        };
         const fixes: string[] = Array.isArray(sb.fixes) ? sb.fixes : [];
         const u = sb.usefulness || {};
         const Bar = ({ label, val }: { label: string; val: number }) => (
@@ -231,12 +253,20 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
           <div className={`px-3 py-2 rounded-md border text-xs space-y-2 ${tone}`}>
             <button type="button" onClick={() => setScoreOpen(!scoreOpen)} className="flex items-center gap-2 w-full text-left">
               <Sparkles className="w-4 h-4 shrink-0" />
-              <span className="font-medium flex-1">
-                Virality {overall.toFixed(1)}/10 — {passes ? "passes the engagement bar" : "below bar"}
+              <span className="font-medium flex-1 tabular-nums">
+                {overall.toFixed(1)}/10
                 {sb.retried ? " (rewritten once)" : ""}
+              </span>
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${bandStyle[band]}`}>
+                {bandCopy[band]}
               </span>
               {scoreOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
+            {verdict && (
+              <p className="text-[12px] italic leading-snug text-foreground/90 pl-6 pr-1">
+                "{verdict}"
+              </p>
+            )}
             {scoreOpen && (
               <div className="space-y-2 pt-1">
                 <Bar label="Hook" val={Number(sb.hook_strength ?? 0)} />
@@ -250,6 +280,14 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
                   <span className={u.contrarian_angle ? "text-success" : ""}>{u.contrarian_angle ? "✓" : "·"} contrarian</span>
                   <span className={u.data_or_example_led ? "text-success" : ""}>{u.data_or_example_led ? "✓" : "·"} data-led</span>
                 </div>
+                {closest && closest.similarity > 0 && (
+                  <div className="mt-2 border-t border-border/50 pt-2 text-[11px] text-muted-foreground">
+                    <div className="font-medium text-foreground/80 mb-1">
+                      Closest past winner ({Math.round(closest.similarity * 100)}% overlap, {closest.score} engagement)
+                    </div>
+                    <p className="italic leading-snug">"{closest.excerpt}{closest.excerpt.length >= 180 ? "…" : ""}"</p>
+                  </div>
+                )}
                 {fixes.length > 0 && (
                   <ul className="pt-1 space-y-1 pl-4 list-disc text-[11px]">
                     {fixes.map((f, i) => <li key={i}>{f}</li>)}

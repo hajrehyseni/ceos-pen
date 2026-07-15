@@ -113,6 +113,14 @@ Usefulness booleans:
 
 overall = 0.30*hook + 0.18*specificity + 0.18*emotional + 0.22*shareability + 0.07*humour_fit + 0.05*lead_magnet_fit.
 
+predicted_reach_band — your honest bet on how this will perform on Hajrë's LinkedIn:
+- "breakout": rare — top-of-feed, quote-shared by operators, likely 20k+ impressions. Only when hook AND specificity AND emotional_pull are all >=8.
+- "high": strong performer, likely 5k-20k impressions. overall >=7.5 with a real hook.
+- "mid": ok but forgettable, likely 1k-5k impressions.
+- "low": scroll-past. Weak hook or generic body.
+
+verdict — ONE sentence in Hajrë's voice (British, warm, direct, no jargon). Explain the ceiling AND the single biggest fix. Example: "Punchy hook, but the middle drags — cut lines 4-5 and this could land properly."
+
 fixes: 1-4 SHORT, specific rewrites. Empty if overall >= 8.
 
 Return ONLY valid JSON, no markdown:
@@ -125,6 +133,8 @@ Return ONLY valid JSON, no markdown:
   "lead_magnet_fit": 0-10,
   "usefulness": { "actionable_takeaway": bool, "contrarian_angle": bool, "data_or_example_led": bool },
   "overall": 0-10,
+  "predicted_reach_band": "low"|"mid"|"high"|"breakout",
+  "verdict": "one sentence in Hajrë's voice",
   "fixes": ["...", "..."]
 }`;
 
@@ -151,6 +161,8 @@ type VerifierResult = {
   error?: string;
 };
 
+type ReachBand = "low" | "mid" | "high" | "breakout";
+
 type ScoreResult = {
   hook_strength: number;
   specificity: number;
@@ -164,6 +176,8 @@ type ScoreResult = {
     data_or_example_led: boolean;
   };
   overall: number;
+  predicted_reach_band: ReachBand;
+  verdict: string;
   fixes: string[];
   inputTokens: number;
   outputTokens: number;
@@ -359,12 +373,21 @@ async function verifyDraft(
   }
 }
 
+function normaliseBand(raw: unknown, overall: number): ReachBand {
+  const s = String(raw ?? "").toLowerCase();
+  if (s === "breakout" || s === "high" || s === "mid" || s === "low") return s as ReachBand;
+  if (overall >= 8.5) return "breakout";
+  if (overall >= 7.5) return "high";
+  if (overall >= 6) return "mid";
+  return "low";
+}
+
 async function scoreDraft(draft: string, apiKey: string, ctaMode: "hard" | "soft"): Promise<ScoreResult> {
   const empty: ScoreResult = {
     hook_strength: 0, specificity: 0, emotional_pull: 0, shareability: 0,
     humour_fit: 0, lead_magnet_fit: 0,
     usefulness: { actionable_takeaway: false, contrarian_angle: false, data_or_example_led: false },
-    overall: 0, fixes: [], inputTokens: 0, outputTokens: 0,
+    overall: 0, predicted_reach_band: "low", verdict: "", fixes: [], inputTokens: 0, outputTokens: 0,
   };
   try {
     const r = await callClaude(
@@ -372,9 +395,10 @@ async function scoreDraft(draft: string, apiKey: string, ctaMode: "hard" | "soft
       CLAUDE_VERIFIER_MODEL,
       SCORER_SYSTEM_PROMPT,
       `CTA_MODE: ${ctaMode}\n\nDRAFT POST:\n"""${draft}"""\n\nScore the draft. Return JSON only.`,
-      800,
+      900,
     );
     const parsed = JSON.parse(stripJsonFence(r.text));
+    const overall = Number(parsed.overall ?? 0);
     return {
       hook_strength: Number(parsed.hook_strength ?? 0),
       specificity: Number(parsed.specificity ?? 0),
@@ -387,7 +411,9 @@ async function scoreDraft(draft: string, apiKey: string, ctaMode: "hard" | "soft
         contrarian_angle: !!parsed.usefulness?.contrarian_angle,
         data_or_example_led: !!parsed.usefulness?.data_or_example_led,
       },
-      overall: Number(parsed.overall ?? 0),
+      overall,
+      predicted_reach_band: normaliseBand(parsed.predicted_reach_band, overall),
+      verdict: typeof parsed.verdict === "string" ? parsed.verdict.trim().slice(0, 220) : "",
       fixes: Array.isArray(parsed.fixes) ? parsed.fixes.slice(0, 6).map(String) : [],
       inputTokens: r.inputTokens,
       outputTokens: r.outputTokens,
@@ -396,6 +422,36 @@ async function scoreDraft(draft: string, apiKey: string, ctaMode: "hard" | "soft
     console.error("Scorer failed:", e);
     return { ...empty, error: String(e) };
   }
+}
+
+// Cheap bag-of-words Jaccard similarity to find the closest winning post.
+function tokenise(text: string): Set<string> {
+  const stop = new Set(["the","a","an","and","or","but","if","in","on","at","to","of","for","is","it","this","that","with","as","by","from","be","are","was","were","i","you","we","they","my","your","our","their","me","us","them","so","not","no","yes","do","don't","just","really","very","also","about","into","out","up","down","over","then","than","because"]);
+  return new Set(
+    text.toLowerCase().replace(/[^a-z0-9\s']/g, " ").split(/\s+/)
+      .filter((w) => w.length > 2 && !stop.has(w))
+  );
+}
+function jaccard(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let inter = 0;
+  for (const t of a) if (b.has(t)) inter++;
+  return inter / (a.size + b.size - inter);
+}
+function findClosestWinner(
+  draft: string,
+  winners: Array<{ id: string; content: string; score: number }>,
+): { id: string; similarity: number; excerpt: string; score: number } | null {
+  if (winners.length === 0) return null;
+  const draftTokens = tokenise(draft);
+  let best: { id: string; similarity: number; excerpt: string; score: number } | null = null;
+  for (const w of winners) {
+    const sim = jaccard(draftTokens, tokenise(w.content));
+    if (!best || sim > best.similarity) {
+      best = { id: w.id, similarity: sim, excerpt: w.content.slice(0, 180), score: w.score };
+    }
+  }
+  return best && best.similarity > 0.05 ? best : null;
 }
 
 function passesScoreBar(s: ScoreResult): boolean {
@@ -491,7 +547,7 @@ serve(async (req) => {
       .eq("status", "published")
       .lte("published_at", sevenDaysAgo).gte("published_at", ninetyDaysAgo);
 
-    let winners: Array<{ content: string; score: number }> = [];
+    let winners: Array<{ id: string; content: string; score: number }> = [];
     if (publishedPool && publishedPool.length > 0) {
       const ids = publishedPool.map((p) => p.id);
       const { data: metricsRows } = await supabase
@@ -504,10 +560,10 @@ serve(async (req) => {
       winners = publishedPool
         .map((p) => {
           const m = latestByPost.get(p.id) ?? { likes: 0, comments: 0, reposts: 0 };
-          return { content: p.content as string, score: m.likes + 2 * m.comments + 3 * m.reposts };
+          return { id: p.id as string, content: p.content as string, score: m.likes + 2 * m.comments + 3 * m.reposts };
         })
         .filter((w) => w.score > 0)
-        .sort((a, b) => b.score - a.score).slice(0, 3);
+        .sort((a, b) => b.score - a.score).slice(0, 10);
     }
 
     const todayStr = now.toLocaleDateString("en-GB", {
@@ -777,6 +833,8 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
       checked_at: new Date().toISOString(),
     };
 
+    const closestWinner = findClosestWinner(postContent, winners);
+
     const scoreBreakdown = {
       hook_strength: score.hook_strength,
       specificity: score.specificity,
@@ -786,6 +844,9 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
       lead_magnet_fit: score.lead_magnet_fit,
       usefulness: score.usefulness,
       overall: score.overall,
+      predicted_reach_band: score.predicted_reach_band,
+      verdict: score.verdict,
+      closest_winner: closestWinner,
       fixes: score.fixes,
       passes_bar: passesScoreBar(score),
       retried: scorerRetried,
