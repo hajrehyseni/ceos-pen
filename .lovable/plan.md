@@ -1,90 +1,93 @@
+# CEO Pen — Audit & Improvement Plan
 
-# CEO PEN — Audit & Growth Plan
+## What's strong today
+- **Full loop covered**: research → draft → fact-check → score → tone-tune → visual studio → auto-publish → analytics.
+- **No-fabrication spine**: verifier + virality/usefulness scorer gate auto-publish; Hajrë-voice enforced in prompts.
+- **Content variety**: 7 pillars, story mode, memes, carousels, charts, infographics, tool-tips, polls.
+- **Ops-grade backend**: pg_cron orchestration, single-user password gate, LinkedIn UGC publish, cost tracking.
+- **Winner-informed generation**: `harvest-winners` + `repurpose-winners` + closest-winner peek in scorer v2.
 
-## Where we are today (audit)
+## Gaps & risks found in the audit
 
-**Working well**
-- Fact-checked drafts, virality + usefulness scorer, quick tweaks, Visual Studio (carousel/poll/image/infographic/chart/reply), scorecard CTA logic, LinkedIn publish, draft history, downloads via signed storage.
-- 5 content pillars on a weekly rota; auto-publish gated by verification + engagement.
+### 1. Content quality & voice drift
+- Scoring is Claude-judging-Claude — no external benchmark, no human-in-the-loop calibration.
+- Story mode and memes have no separate scorer tuning; they inherit the generic rubric.
+- No "kill switch" for pillars that consistently under-perform — pillars are hard-coded to weekdays.
 
-**Gaps vs. what you're asking for**
-1. **No meme format.** Visual Studio has 6 tabs but no one-click meme generator (top/bottom text on a reaction image).
-2. **Virality score is single-number.** No comparison to your published winners, no "why this will/won't fly" plain-English verdict, no predicted reach band.
-3. **Posts skew essay-ish.** No dedicated "Story mode" that forces scene → tension → turn → lesson with short paragraphs and white space tuned for phone reading.
-4. **No "screenshot tip" pipeline.** Nothing captures useful practices from Claude Code, Codex, n8n, Hugging Face, Cursor, etc., and turns them into 60–90 word posts + a screenshot.
-5. **Sources are RSS-only.** No changelog/docs/HN/Reddit/YouTube-transcript pull for tool-tip content.
+### 2. Distribution is single-channel
+- LinkedIn only. No X/Threads/Bluesky cross-posting, no newsletter digest, no repurposing into YouTube Shorts / Reels scripts.
+- No reply/DM triage beyond `reply-assistant` (which isn't wired into a real inbox loop).
 
----
+### 3. Feedback loop is thin
+- `post_metrics` exist but nothing closes the loop back into the prompt: winners feed few-shot, losers don't feed a "don't do this" list.
+- No A/B on hooks — one hook per draft, no variant testing.
+- No comment-sentiment mining to detect what actually resonates vs. what merely gets likes.
 
-## Proposed upgrades (phased, each shippable on its own)
+### 4. Research is shallow
+- RSS + Hacker News only. No LinkedIn trending, no Reddit (r/artificial, r/LocalLLaMA), no arXiv, no Product Hunt, no Google Trends, no competitor CEO tracking.
+- No dedup across days — same story can be drafted twice in a week.
+- No "angle memory" — the system may reuse an angle it already published.
 
-### Phase 1 — Meme Studio (one-click)
-- New Visual Studio tab **Meme** + a `Meme` shortcut button on every draft card ("Turn into meme").
-- Edge function `gen-meme`: Claude picks a meme *format* (Drake, Distracted BF, "This is Fine", Two Buttons, Change my Mind, custom reaction) that matches the draft's tension, then writes the caption(s).
-- Rendering: HTML/Canvas template (Impact-style top/bottom text, safe margins, watermark off). Curated base-image library stored in `visual-exports` bucket. No external meme API needed.
-- Export uses existing `downloadBlob` → signed URL flow; also "Add to Visual Studio" so it attaches to the post.
+### 5. Draft queue UX
+- 456-line `DraftCard.tsx` is doing too much; no bulk actions (approve all "high", reject all "low").
+- No side-by-side variant comparison, no diff view when tone-tuning.
+- No mobile-optimised swipe review (this is a mobile-first CEO product per project memory).
 
-### Phase 2 — Virality Score v2
-- Extend scorer to output: `predicted_reach_band` (low/mid/high/breakout), `similar_winner_id` (nearest match from `harvest-winners` table), and a one-line **verdict in Hajrë's voice** ("Punchy hook, weak turn — will hit ~2k impressions unless you sharpen line 3").
-- Draft card: replace bare "7.2/10" with a compact panel: score, band, closest winner (click to open), plus the existing axis bars behind the chevron.
-- Auto-publish rule adds `predicted_reach_band !== 'low'` as a gate.
+### 6. Analytics is descriptive, not prescriptive
+- Shows what happened, not "here's what to double-down on next week".
+- No pillar × time-of-day heatmap, no hook-pattern leaderboard, no cost-per-engaged-impression.
 
-### Phase 3 — Story Mode drafts
-- New generator variant `generate-draft --shape=story` producing 180–260 word narratives with:
-  - Line 1 = scene, Line 2 = tension, mid = turn, close = lesson + soft CTA
-  - Enforced short paragraphs (≤ 2 sentences), whitespace between beats.
-- Add a **Format** control to the daily rota so certain slots default to Story (Wed/Sat) and others to Insight/Meme/Tip.
-- Quick-tweak "Rewrite as story" available on any existing draft.
+### 7. Publishing intelligence
+- Auto-publish uses fixed UK slots; no dynamic slot picking based on recent audience-active windows.
+- No first-comment auto-post (major LinkedIn algo lever) — links/CTAs still live in the main post.
+- No "hold for event" logic (e.g. delay when a bigger news beat drops the same hour).
 
-### Phase 4 — Screenshot Tips pipeline
-- New pillar `tool_tips` covering: Claude Code, Codex, n8n, Hugging Face, Cursor, Lovable, Perplexity, Gemini CLI, LangGraph.
-- New collector `collect-tool-tips` that pulls from:
-  - Official changelogs / release notes (Firecrawl on known URLs)
-  - Docs "What's new" pages
-  - Reddit r/ClaudeAI, r/OpenAI, r/LocalLLaMA top weekly
-  - Hacker News front-page items matching tool names
-- Draft template = 60–90 words: `What broke → the trick → why it works → try it`. No fabrication; must cite the source page.
-- Visual Studio **Screenshot** tab: paste/upload a screenshot, or auto-fetch a hero image via `fetch_website` screenshot; frame it in a branded phone/browser mockup with a caption bar.
-- Auto-schedule these into Fri/Sun slots since they perform well as short reads.
-
-### Phase 5 — Small polish (bundled)
-- "Turn into meme / story / tip" buttons live next to Quick Tweaks on every draft.
-- Homepage adds a **Formats today** row (Story · Insight · Tip · Meme) so you see variety at a glance.
-- Analytics view: split engagement averages by format so we learn which shape wins for you.
+### 8. Safety / trust
+- Fact-checker is a second Claude pass — no external citation store, no source URL persisted with the claim.
+- No PII/defamation guard on named humans/companies.
+- No versioned prompt registry — prompt edits aren't A/B testable or revertable.
 
 ---
 
-## Technical section
+## Recommended roadmap (prioritised)
 
-**New tables**
-- `meme_templates(id, name, image_path, top_zone jsonb, bottom_zone jsonb, tone_tags text[])` — seeded with ~12 formats.
-- `tool_sources(id, tool, url, kind, enabled)` — feeds for the tip collector.
-- Extend `posts`: `format text default 'insight'`, `predicted_reach_band text`, `similar_winner_id uuid`.
-- Extend `visual_assets.kind` enum with `meme` and `screenshot`.
+### Phase A — Close the feedback loop (highest ROI)
+1. **Loser corpus + anti-patterns**: harvest bottom-quartile posts, extract shared traits, inject as "avoid" block in `generate-draft`.
+2. **Hook A/B**: generate 3 hooks per draft, score each, keep the winner; log which hook family wins over time.
+3. **Comment-sentiment miner**: nightly job pulls comments on published posts, classifies sentiment/topic, updates a "what resonates" table that feeds the next prompt.
+4. **Prompt registry**: version prompts in a table; every draft records `prompt_version`; enables true A/B and rollback.
 
-**New edge functions**
-- `gen-meme` (Claude + template picker + server-side render via `satori` or canvas in Deno; falls back to client-side render if easier).
-- `collect-tool-tips` (Firecrawl + Reddit RSS + HN Algolia) → drops into `news_items` with `pillar='tool_tips'`.
-- `gen-screenshot-post` (short-form draft + optional screenshot fetch).
+### Phase B — Smarter research
+1. Add Reddit, arXiv, Product Hunt, Google Trends collectors alongside RSS.
+2. **Angle-memory dedup**: embed each published post; block new drafts whose cosine similarity > 0.85 against last 30 days.
+3. **Competitor CEO watch**: track 5–10 named voices; surface their angles in Trend Radar with "counter-take" prompt.
 
-**Modified functions**
-- `generate-draft`: accept `format` and `shape`; add Story system prompt variant.
-- Scorer: add `predicted_reach_band`, `similar_winner_id` (embed compare vs. winners table), and `verdict` line.
+### Phase C — Distribution multiplier
+1. **First-comment auto-post** on LinkedIn (link, lead magnet, CTA) — single biggest algo win.
+2. **Cross-post adapter**: same draft → X thread + Bluesky + Threads variants generated by a `repurpose-channel` function.
+3. **Weekly newsletter digest**: auto-compile top 3 published posts + one exclusive insight, email via Resend.
+4. **Dynamic slot picker**: pick publish slot from the last 30 days' engagement heatmap instead of fixed times.
 
-**Frontend**
-- `VisualStudio.tsx`: add `Meme` and `Screenshot` tabs.
-- `DraftCard.tsx`: add format badge, "Turn into meme/story/tip" buttons, new verdict line above the score bar.
-- `Index.tsx`: "Formats today" strip.
+### Phase D — Prescriptive analytics
+1. Pillar × time-of-day heatmap.
+2. Hook-pattern leaderboard (question / stat / contrarian / story-opener).
+3. Weekly "CEO brief" card: "Double down on X, retire Y, test Z" — generated from the analytics.
+4. Cost-per-engaged-impression metric.
 
-**No breaking changes** — everything additive; existing drafts default to `format='insight'`.
+### Phase E — Draft queue UX (mobile-first)
+1. Swipeable card review on mobile (right = approve, left = reject, up = tweak).
+2. Bulk actions on desktop ("approve all high-scoring", "reject all low").
+3. Side-by-side variant / tone-tune diff view.
+4. Split the 456-line `DraftCard.tsx` into smaller composable pieces.
+
+### Phase F — Trust & safety
+1. Persist source URLs per claim inside `score_breakdown.sources[]`; render as footnotes in the draft.
+2. Named-entity guard: any claim about a specific person/company must have a matching source URL or it fails verification.
+3. External fact-check pass using web search on top-3 claims (not just Claude self-check).
 
 ---
 
-## Suggested order to ship
-1. Phase 2 (Virality v2) — fastest win, no new UI surface.
-2. Phase 1 (Meme Studio) — highest "wow", isolated.
-3. Phase 3 (Story mode) — prompt work + one tweak button.
-4. Phase 4 (Screenshot Tips) — biggest, new pillar + collector.
-5. Phase 5 polish.
+## Suggested starting point
+**Phase A + first-comment auto-post from Phase C.** Both are small-surface, high-leverage, and directly compound existing infrastructure (post_metrics, publish-to-linkedin) without new UI risk. Everything else can follow in order.
 
-Want me to start with **Phase 1 + 2 together**, or a different order? I can also drop any phase you don't want.
+Tell me which phase (or which specific items) to build first and I'll turn it into an implementation plan.
