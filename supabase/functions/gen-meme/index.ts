@@ -63,7 +63,7 @@ serve(async (req) => {
     // Validate format_id fell into our list — fall back to top_bottom.
     if (!FORMATS.some((f) => f.id === parsed.format_id)) parsed.format_id = "top_bottom";
 
-    const asset = await saveAsset({ postId: post_id, kind: "image_post", payload: { ...parsed, meme: true } });
+    const asset = await saveAsset({ postId: post_id, kind: "meme" as any, payload: parsed });
     return ok({ status: "ok", asset });
   } catch (e: any) {
     return bad(e.message ?? String(e), 500);
