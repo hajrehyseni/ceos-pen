@@ -626,6 +626,14 @@ serve(async (req) => {
       ? `\nHIGH-PERFORMING PAST POSTS (match this energy — same voice, same level of specificity, same shape of hook):\n${winners.map((w, i) => `${i + 1}. (engagement ${w.score})\n"""${w.content}"""`).join("\n\n")}\n`
       : "";
 
+    const losersBlock = losers.length > 0
+      ? `\nLOW-PERFORMING PAST POSTS (bottom quartile — do NOT reproduce their patterns, hooks, or shape. If your draft resembles any of these, rewrite it):\n${losers.map((l, i) => `${i + 1}. (engagement ${l.score})\n"""${l.content.slice(0, 400)}"""`).join("\n\n")}\n`
+      : "";
+
+    const resonanceBlock = resonanceSummary
+      ? `\nWHAT REAL READERS RESPOND TO (mined from recent LinkedIn comments — lean into these angles, avoid the friction points):\n${resonanceSummary}\n`
+      : "";
+
     // CEO context block — keeps the agent grounded in Hajre's voice + worldview
     const ceoBlock = ceoCtx
       ? `\nWHO YOU ARE WRITING AS:
@@ -661,8 +669,7 @@ ${newsSection}
 ${aiLandscapeBlock}${trendsBlock}
 VOICE SAMPLES (match this tone):
 ${voiceSection}
-${winnersBlock}
-PREVIOUSLY REJECTED (avoid these patterns):
+${winnersBlock}${losersBlock}${resonanceBlock}PREVIOUSLY REJECTED (avoid these patterns):
 ${rejectSection}`;
 
     // Recent openers (last 5 drafts) — feed into hook brainstorm for diversity
