@@ -566,6 +566,39 @@ serve(async (req) => {
         .sort((a, b) => b.score - a.score).slice(0, 10);
     }
 
+    // Loser corpus — bottom quartile of scored posts, used as "avoid these" signal.
+    let losers: Array<{ content: string; score: number }> = [];
+    if (publishedPool && publishedPool.length >= 8) {
+      const ids = publishedPool.map((p) => p.id);
+      const { data: metricsRows2 } = await supabase
+        .from("post_metrics").select("post_id, likes, comments, reposts").in("post_id", ids);
+      const latest = new Map<string, { likes: number; comments: number; reposts: number }>();
+      (metricsRows2 ?? []).forEach((m: any) => {
+        latest.set(m.post_id, { likes: m.likes ?? 0, comments: m.comments ?? 0, reposts: m.reposts ?? 0 });
+      });
+      const scored = publishedPool.map((p) => {
+        const m = latest.get(p.id) ?? { likes: 0, comments: 0, reposts: 0 };
+        return { content: p.content as string, score: m.likes + 2 * m.comments + 3 * m.reposts };
+      }).sort((a, b) => a.score - b.score);
+      const cutoff = Math.max(1, Math.floor(scored.length / 4));
+      losers = scored.slice(0, cutoff).slice(0, 5);
+    }
+
+    // Resonance summary (rolling insight from comment_insights) — optional.
+    const { data: resonanceRow } = await supabase
+      .from("settings").select("value").eq("key", "resonance_summary").maybeSingle();
+    const resonanceSummary = resonanceRow?.value ?? null;
+
+    // Active system prompt from registry (falls back to hardcoded SYSTEM_PROMPT).
+    const { data: activePrompt } = await supabase
+      .from("prompt_registry").select("version, template")
+      .eq("name", "generate_draft_system").eq("active", true)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const activePromptVersion = activePrompt?.version ?? "v1";
+    const activeSystemPrompt = (activePrompt?.template && !activePrompt.template.startsWith("SEED_PLACEHOLDER"))
+      ? activePrompt.template
+      : SYSTEM_PROMPT;
+
     const todayStr = now.toLocaleDateString("en-GB", {
       weekday: "long", day: "numeric", month: "long", year: "numeric",
     });
