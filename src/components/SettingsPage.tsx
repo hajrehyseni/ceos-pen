@@ -412,6 +412,129 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           </div>
         </div>
       </div>
+
+      <DistributionCard />
     </div>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Distribution — competitor watch, newsletter, cross-channel repurpose      */
+/* -------------------------------------------------------------------------- */
+
+function DistributionCard() {
+  const { toast } = useToast();
+  const [competitors, setCompetitors] = useState<Array<{ id: string; name: string | null; handle: string; profile_url: string | null; active: boolean }>>([]);
+  const [subs, setSubs] = useState<Array<{ id: string; email: string; active: boolean }>>([]);
+  const [newComp, setNewComp] = useState({ name: "", handle: "", profile_url: "" });
+  const [newSub, setNewSub] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    const [c, s] = await Promise.all([
+      supabase.from("competitor_watch").select("id, name, handle, profile_url, active").order("created_at"),
+      supabase.from("newsletter_subscribers").select("id, email, active").order("created_at"),
+    ]);
+    if (c.data) setCompetitors(c.data as any);
+    if (s.data) setSubs(s.data as any);
+  };
+  useEffect(() => { load(); }, []);
+
+  const addCompetitor = async () => {
+    if (!newComp.handle) return;
+    const { error } = await supabase.from("competitor_watch").insert({
+      handle: newComp.handle.trim(),
+      name: newComp.name.trim() || null,
+      profile_url: newComp.profile_url.trim() || null,
+      active: true,
+    });
+    if (error) return toast({ title: "Add failed", description: error.message, variant: "destructive" });
+    setNewComp({ name: "", handle: "", profile_url: "" });
+    load();
+  };
+
+  const removeCompetitor = async (id: string) => {
+    await supabase.from("competitor_watch").delete().eq("id", id);
+    load();
+  };
+
+  const addSub = async () => {
+    if (!newSub) return;
+    const { error } = await supabase.from("newsletter_subscribers").insert({ email: newSub.trim(), active: true });
+    if (error) return toast({ title: "Add failed", description: error.message, variant: "destructive" });
+    setNewSub("");
+    load();
+  };
+
+  const removeSub = async (id: string) => {
+    await supabase.from("newsletter_subscribers").delete().eq("id", id);
+    load();
+  };
+
+  const runFn = async (fn: "repurpose-channel" | "weekly-digest" | "collect-competitors") => {
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke(fn, { body: { trigger: "manual" } });
+    setBusy(false);
+    if (error) toast({ title: `${fn} failed`, description: error.message, variant: "destructive" });
+    else toast({ title: `${fn} ran`, description: JSON.stringify(data).slice(0, 160) });
+  };
+
+  return (
+    <div className="card-surface p-6 space-y-6">
+      <div className="flex items-center gap-2">
+        <Megaphone className="w-5 h-5 text-primary" />
+        <h2 className="text-lg font-semibold text-foreground">Distribution</h2>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Competitor watch feeds Trend Radar with counter-takes. Newsletter digest goes out Sunday 08:00 UK.
+        Cross-channel variants (X / Threads / Bluesky) auto-generate 15 min after each LinkedIn publish.
+      </p>
+
+      {/* Competitor watch */}
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-foreground">Competitor watch</h3>
+        <div className="grid grid-cols-3 gap-2">
+          <Input placeholder="Name" value={newComp.name} onChange={(e) => setNewComp({ ...newComp, name: e.target.value })} className="bg-secondary border-border" />
+          <Input placeholder="handle" value={newComp.handle} onChange={(e) => setNewComp({ ...newComp, handle: e.target.value })} className="bg-secondary border-border" />
+          <Input placeholder="profile URL" value={newComp.profile_url} onChange={(e) => setNewComp({ ...newComp, profile_url: e.target.value })} className="bg-secondary border-border" />
+        </div>
+        <Button size="sm" onClick={addCompetitor}><Plus className="w-3 h-3 mr-1" /> Add competitor</Button>
+        <ul className="space-y-1 text-sm">
+          {competitors.map((c) => (
+            <li key={c.id} className="flex items-center justify-between bg-secondary/50 px-2 py-1 rounded">
+              <span className="text-foreground">{c.name ?? c.handle} <span className="text-muted-foreground text-xs">{c.profile_url}</span></span>
+              <button onClick={() => removeCompetitor(c.id)} className="text-destructive"><Trash2 className="w-3 h-3" /></button>
+            </li>
+          ))}
+          {competitors.length === 0 && <li className="text-xs text-muted-foreground">None yet.</li>}
+        </ul>
+      </div>
+
+      {/* Newsletter subscribers */}
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-foreground">Newsletter subscribers</h3>
+        <div className="flex gap-2">
+          <Input placeholder="email@example.com" value={newSub} onChange={(e) => setNewSub(e.target.value)} className="bg-secondary border-border flex-1" />
+          <Button size="sm" onClick={addSub}><Plus className="w-3 h-3 mr-1" /> Add</Button>
+        </div>
+        <ul className="space-y-1 text-sm">
+          {subs.map((s) => (
+            <li key={s.id} className="flex items-center justify-between bg-secondary/50 px-2 py-1 rounded">
+              <span className="text-foreground">{s.email}</span>
+              <button onClick={() => removeSub(s.id)} className="text-destructive"><Trash2 className="w-3 h-3" /></button>
+            </li>
+          ))}
+          {subs.length === 0 && <li className="text-xs text-muted-foreground">Add an email to enable the weekly digest.</li>}
+        </ul>
+      </div>
+
+      {/* Manual triggers */}
+      <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+        <Button size="sm" variant="outline" disabled={busy} onClick={() => runFn("collect-competitors")}>Run competitor scan</Button>
+        <Button size="sm" variant="outline" disabled={busy} onClick={() => runFn("repurpose-channel")}>Repurpose latest</Button>
+        <Button size="sm" variant="outline" disabled={busy} onClick={() => runFn("weekly-digest")}>Send digest now</Button>
+      </div>
+    </div>
+  );
+}
+
