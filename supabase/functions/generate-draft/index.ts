@@ -373,12 +373,21 @@ async function verifyDraft(
   }
 }
 
+function normaliseBand(raw: unknown, overall: number): ReachBand {
+  const s = String(raw ?? "").toLowerCase();
+  if (s === "breakout" || s === "high" || s === "mid" || s === "low") return s as ReachBand;
+  if (overall >= 8.5) return "breakout";
+  if (overall >= 7.5) return "high";
+  if (overall >= 6) return "mid";
+  return "low";
+}
+
 async function scoreDraft(draft: string, apiKey: string, ctaMode: "hard" | "soft"): Promise<ScoreResult> {
   const empty: ScoreResult = {
     hook_strength: 0, specificity: 0, emotional_pull: 0, shareability: 0,
     humour_fit: 0, lead_magnet_fit: 0,
     usefulness: { actionable_takeaway: false, contrarian_angle: false, data_or_example_led: false },
-    overall: 0, fixes: [], inputTokens: 0, outputTokens: 0,
+    overall: 0, predicted_reach_band: "low", verdict: "", fixes: [], inputTokens: 0, outputTokens: 0,
   };
   try {
     const r = await callClaude(
@@ -386,9 +395,10 @@ async function scoreDraft(draft: string, apiKey: string, ctaMode: "hard" | "soft
       CLAUDE_VERIFIER_MODEL,
       SCORER_SYSTEM_PROMPT,
       `CTA_MODE: ${ctaMode}\n\nDRAFT POST:\n"""${draft}"""\n\nScore the draft. Return JSON only.`,
-      800,
+      900,
     );
     const parsed = JSON.parse(stripJsonFence(r.text));
+    const overall = Number(parsed.overall ?? 0);
     return {
       hook_strength: Number(parsed.hook_strength ?? 0),
       specificity: Number(parsed.specificity ?? 0),
@@ -401,7 +411,9 @@ async function scoreDraft(draft: string, apiKey: string, ctaMode: "hard" | "soft
         contrarian_angle: !!parsed.usefulness?.contrarian_angle,
         data_or_example_led: !!parsed.usefulness?.data_or_example_led,
       },
-      overall: Number(parsed.overall ?? 0),
+      overall,
+      predicted_reach_band: normaliseBand(parsed.predicted_reach_band, overall),
+      verdict: typeof parsed.verdict === "string" ? parsed.verdict.trim().slice(0, 220) : "",
       fixes: Array.isArray(parsed.fixes) ? parsed.fixes.slice(0, 6).map(String) : [],
       inputTokens: r.inputTokens,
       outputTokens: r.outputTokens,
@@ -410,6 +422,36 @@ async function scoreDraft(draft: string, apiKey: string, ctaMode: "hard" | "soft
     console.error("Scorer failed:", e);
     return { ...empty, error: String(e) };
   }
+}
+
+// Cheap bag-of-words Jaccard similarity to find the closest winning post.
+function tokenise(text: string): Set<string> {
+  const stop = new Set(["the","a","an","and","or","but","if","in","on","at","to","of","for","is","it","this","that","with","as","by","from","be","are","was","were","i","you","we","they","my","your","our","their","me","us","them","so","not","no","yes","do","don't","just","really","very","also","about","into","out","up","down","over","then","than","because"]);
+  return new Set(
+    text.toLowerCase().replace(/[^a-z0-9\s']/g, " ").split(/\s+/)
+      .filter((w) => w.length > 2 && !stop.has(w))
+  );
+}
+function jaccard(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let inter = 0;
+  for (const t of a) if (b.has(t)) inter++;
+  return inter / (a.size + b.size - inter);
+}
+function findClosestWinner(
+  draft: string,
+  winners: Array<{ id: string; content: string; score: number }>,
+): { id: string; similarity: number; excerpt: string; score: number } | null {
+  if (winners.length === 0) return null;
+  const draftTokens = tokenise(draft);
+  let best: { id: string; similarity: number; excerpt: string; score: number } | null = null;
+  for (const w of winners) {
+    const sim = jaccard(draftTokens, tokenise(w.content));
+    if (!best || sim > best.similarity) {
+      best = { id: w.id, similarity: sim, excerpt: w.content.slice(0, 180), score: w.score };
+    }
+  }
+  return best && best.similarity > 0.05 ? best : null;
 }
 
 function passesScoreBar(s: ScoreResult): boolean {
