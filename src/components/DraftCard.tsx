@@ -152,9 +152,16 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
 
       {/* Pillar tag */}
       <div className="flex items-center justify-between">
-        <span className={`text-xs font-medium px-3 py-1 rounded-full border ${pillarClasses}`}>
-          {pillar?.label || post.pillar}
-        </span>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className={`text-xs font-medium px-3 py-1 rounded-full border ${pillarClasses}`}>
+            {pillar?.label || post.pillar}
+          </span>
+          {post.format && post.format !== "text" && (
+            <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full border border-primary/40 bg-primary/10 text-primary">
+              {post.format === "story" ? "Story" : post.format === "meme" ? "Meme" : post.format === "tool_tip" ? "Tool tip" : post.format}
+            </span>
+          )}
+        </div>
         <span className="text-xs text-muted-foreground">
           {new Date(post.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
         </span>
