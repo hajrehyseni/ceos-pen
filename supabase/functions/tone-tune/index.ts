@@ -113,6 +113,7 @@ serve(async (req) => {
       updates.first_comment_text = sanitizeDraftContent(comment).text;
     } else {
       updates.content = sanitizeDraftContent(r.text.trim()).text;
+      if (tweak === "rewrite_as_story") updates.format = "story";
     }
 
     const { error: updErr } = await supabase.from("posts").update(updates).eq("id", post_id);
