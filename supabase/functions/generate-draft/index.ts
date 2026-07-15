@@ -833,6 +833,8 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
       checked_at: new Date().toISOString(),
     };
 
+    const closestWinner = findClosestWinner(postContent, winners);
+
     const scoreBreakdown = {
       hook_strength: score.hook_strength,
       specificity: score.specificity,
@@ -842,6 +844,9 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
       lead_magnet_fit: score.lead_magnet_fit,
       usefulness: score.usefulness,
       overall: score.overall,
+      predicted_reach_band: score.predicted_reach_band,
+      verdict: score.verdict,
+      closest_winner: closestWinner,
       fixes: score.fixes,
       passes_bar: passesScoreBar(score),
       retried: scorerRetried,
