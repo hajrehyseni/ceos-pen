@@ -39,6 +39,7 @@ export function DraftCard({ post, onUpdate }: DraftCardProps) {
   const [tweaking, setTweaking] = useState<string | null>(null);
 
   const TWEAKS: Array<{ key: string; label: string }> = [
+    { key: "rewrite_as_story", label: "Rewrite as story" },
     { key: "add_british_humour", label: "Add British humour" },
     { key: "make_more_fun", label: "Make it more fun" },
     { key: "less_corporate", label: "Make it less corporate" },
