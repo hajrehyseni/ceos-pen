@@ -49,6 +49,7 @@ export function VisualStudio({ postId, draftContent }: { postId: string; draftCo
               </TabsTrigger>
             ))}
           </TabsList>
+          <TabsContent value="meme" className="pt-3"><MemePreview postId={postId} draftContent={draftContent} /></TabsContent>
           <TabsContent value="carousel" className="pt-3"><CarouselPreview postId={postId} draftContent={draftContent} /></TabsContent>
           <TabsContent value="poll" className="pt-3"><PollPreview postId={postId} draftContent={draftContent} /></TabsContent>
           <TabsContent value="reply" className="pt-3"><ReplyAssistant /></TabsContent>
