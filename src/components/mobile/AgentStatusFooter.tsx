@@ -52,7 +52,7 @@ export function AgentStatusFooter({ agentLogs }: Props) {
     const hourAgo = Date.now() - 60 * 60 * 1000;
     const recentFailures = sorted.filter(
       (l) => new Date(l.created_at).getTime() >= hourAgo &&
-        (l.status === "error" || /_failed$/.test(l.action || ""))
+        /_failed$|_error$|_partial$/.test(l.action || "")
     );
     return { lastRun, next: getNextRun(), recent: sorted.slice(0, 8), recentFailures };
   }, [agentLogs]);
