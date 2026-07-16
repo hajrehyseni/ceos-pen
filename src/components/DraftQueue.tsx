@@ -2,9 +2,12 @@ import { useState } from "react";
 import { Post } from "@/types/database";
 import { DraftCard } from "./DraftCard";
 import { PILLARS, PillarKey } from "@/lib/constants";
-import { FileText, CheckCircle2, XCircle, ChevronRight, ShieldCheck, Link2 } from "lucide-react";
+import { FileText, CheckCircle2, XCircle, ChevronRight, ShieldCheck, Link2, Wand2, Loader2 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { detectScorecard } from "@/lib/scorecard";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface DraftQueueProps {
   posts: Post[];
@@ -58,19 +61,10 @@ function Row({ post, onClick }: { post: Post; onClick: () => void }) {
 }
 
 function Section({
-  title,
-  icon: Icon,
-  tone,
-  posts,
-  onOpen,
-  emptyText,
+  title, icon: Icon, tone, posts, onOpen, emptyText,
 }: {
-  title: string;
-  icon: typeof FileText;
-  tone: string;
-  posts: Post[];
-  onOpen: (p: Post) => void;
-  emptyText?: string;
+  title: string; icon: typeof FileText; tone: string; posts: Post[];
+  onOpen: (p: Post) => void; emptyText?: string;
 }) {
   return (
     <div className="space-y-2">
@@ -94,7 +88,9 @@ function Section({
 }
 
 export function DraftQueue({ posts, onUpdate }: DraftQueueProps) {
+  const { toast } = useToast();
   const [openPost, setOpenPost] = useState<Post | null>(null);
+  const [busy, setBusy] = useState<null | "approve_high" | "reject_low" | "regen_failed">(null);
 
   const drafts = posts
     .filter((p) => p.status === "draft")
@@ -107,8 +103,63 @@ export function DraftQueue({ posts, onUpdate }: DraftQueueProps) {
     .sort((a, b) => new Date(b.rejected_at || b.created_at).getTime() - new Date(a.rejected_at || a.created_at).getTime())
     .slice(0, 20);
 
-  // Track the "live" version of the open post so tweaks reflect immediately.
   const livePost = openPost ? posts.find((p) => p.id === openPost.id) || openPost : null;
+
+  const highDrafts = drafts.filter(
+    (d) => d.engagement_estimate === "high" && d.verification_status === "passed"
+  );
+  const lowDrafts = drafts.filter((d) => d.engagement_estimate === "low");
+  const failedVerify = drafts.filter((d) => d.verification_status === "failed");
+
+  const bulkApproveHigh = async () => {
+    if (highDrafts.length === 0) return;
+    setBusy("approve_high");
+    const ids = highDrafts.map((d) => d.id);
+    const { error } = await supabase
+      .from("posts")
+      .update({ status: "approved", approved_at: new Date().toISOString() })
+      .in("id", ids);
+    setBusy(null);
+    if (error) toast({ title: "Bulk approve failed", description: error.message, variant: "destructive" });
+    else toast({ title: `Approved ${ids.length} high-engagement draft${ids.length === 1 ? "" : "s"}` });
+    onUpdate();
+  };
+
+  const bulkRejectLow = async () => {
+    if (lowDrafts.length === 0) return;
+    setBusy("reject_low");
+    const ids = lowDrafts.map((d) => d.id);
+    const { error } = await supabase
+      .from("posts")
+      .update({ status: "rejected", rejection_reason: "Bulk: low engagement", rejected_at: new Date().toISOString() })
+      .in("id", ids);
+    setBusy(null);
+    if (error) toast({ title: "Bulk reject failed", description: error.message, variant: "destructive" });
+    else toast({ title: `Rejected ${ids.length} low-engagement draft${ids.length === 1 ? "" : "s"}` });
+    onUpdate();
+  };
+
+  const regenerateFailed = async () => {
+    if (failedVerify.length === 0) return;
+    setBusy("regen_failed");
+    // Reject the failed set, then trigger fresh draft(s) — one per pillar in the set.
+    const ids = failedVerify.map((d) => d.id);
+    await supabase
+      .from("posts")
+      .update({ status: "rejected", rejection_reason: "Bulk: failed verification, regenerating", rejected_at: new Date().toISOString() })
+      .in("id", ids);
+    const pillars = Array.from(new Set(failedVerify.map((d) => d.pillar)));
+    for (const pillar of pillars) {
+      try {
+        await supabase.functions.invoke("generate-draft", { body: { pillar_override: pillar } });
+      } catch (e) {
+        // continue
+      }
+    }
+    setBusy(null);
+    toast({ title: `Regenerating ${pillars.length} draft${pillars.length === 1 ? "" : "s"}` });
+    onUpdate();
+  };
 
   if (drafts.length === 0 && approved.length === 0 && rejected.length === 0) {
     return (
@@ -126,9 +177,49 @@ export function DraftQueue({ posts, onUpdate }: DraftQueueProps) {
     );
   }
 
+  const hasBulk = highDrafts.length + lowDrafts.length + failedVerify.length > 0;
+
   return (
     <>
       <div className="space-y-6">
+        {hasBulk && (
+          <div className="card-surface p-3 flex flex-wrap items-center gap-2">
+            <span className="label-eyebrow text-muted-foreground pl-1 pr-2 flex items-center gap-1.5">
+              <Wand2 className="w-3 h-3" /> Bulk actions
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-[11px]"
+              disabled={busy !== null || highDrafts.length === 0}
+              onClick={bulkApproveHigh}
+            >
+              {busy === "approve_high" && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+              Approve all High ({highDrafts.length})
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-[11px]"
+              disabled={busy !== null || lowDrafts.length === 0}
+              onClick={bulkRejectLow}
+            >
+              {busy === "reject_low" && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+              Reject all Low ({lowDrafts.length})
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-[11px]"
+              disabled={busy !== null || failedVerify.length === 0}
+              onClick={regenerateFailed}
+            >
+              {busy === "regen_failed" && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+              Regenerate Failed-verify ({failedVerify.length})
+            </Button>
+          </div>
+        )}
+
         <Section
           title="Approved · awaiting publish"
           icon={CheckCircle2}

@@ -922,7 +922,14 @@ Rewrite the entire post. Strip every forbidden phrase. Add contractions (I'm, do
     const { data: newPost, error: postError } = await supabase
       .from("posts").insert({
         content: postContent, pillar, status: "draft", format: "text",
-        suggested_time: DAY_SUGGESTED_TIMES[dayOfWeek] ?? "09:00:00",
+        suggested_time: await (async () => {
+          try {
+            const { pickDynamicSlot } = await import("../_shared/slot-picker.ts");
+            return await pickDynamicSlot(supabase as any, pillar);
+          } catch (_e) {
+            return DAY_SUGGESTED_TIMES[dayOfWeek] ?? "09:00:00";
+          }
+        })(),
         engagement_estimate: engagement,
         source_material: sourceMaterial,
         verification_status: verifier.verdict === "pass" ? "passed" : "failed",

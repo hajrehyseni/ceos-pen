@@ -52,3 +52,6 @@ verify_jwt = false
 
 [functions.publish-threads]
 verify_jwt = false
+
+[functions.sync-linkedin-metrics]
+verify_jwt = false
