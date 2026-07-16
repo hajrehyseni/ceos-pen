@@ -26,9 +26,13 @@ function engagedScore(m?: PostMetrics) {
   return m.likes + 2 * m.comments + 3 * m.reposts;
 }
 
+type ChannelFilter = "all" | "linkedin" | "x" | "bluesky" | "threads";
+
 export function AnalyticsView({ posts, metrics, agentLogs }: AnalyticsViewProps) {
   const [brief, setBrief] = useState<WeeklyBrief | null>(null);
   const [briefLoading, setBriefLoading] = useState(false);
+  const [channel, setChannel] = useState<ChannelFilter>("linkedin");
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     supabase
@@ -39,6 +43,20 @@ export function AnalyticsView({ posts, metrics, agentLogs }: AnalyticsViewProps)
       .maybeSingle()
       .then(({ data }) => setBrief(data as unknown as WeeklyBrief));
   }, []);
+
+  const syncLinkedInMetrics = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-linkedin-metrics", { body: {} });
+      if (error) throw error;
+      console.log("sync-linkedin-metrics:", data);
+    } catch (e) {
+      console.error("sync failed", e);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
 
   const metricsById = new Map(metrics.map((m) => [m.post_id, m]));
 
