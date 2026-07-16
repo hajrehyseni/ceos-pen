@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { AgentLog } from "@/types/database";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Activity, ChevronUp } from "lucide-react";
+import { Activity, ChevronUp, AlertTriangle } from "lucide-react";
 
 interface Props {
   agentLogs: AgentLog[];
@@ -46,24 +46,37 @@ function shortTime(d: Date): string {
 export function AgentStatusFooter({ agentLogs }: Props) {
   const [open, setOpen] = useState(false);
 
-  const { lastRun, next, recent } = useMemo(() => {
+  const { lastRun, next, recent, recentFailures } = useMemo(() => {
     const sorted = [...agentLogs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     const lastRun = sorted[0] ? new Date(sorted[0].created_at) : null;
-    return { lastRun, next: getNextRun(), recent: sorted.slice(0, 8) };
+    const hourAgo = Date.now() - 60 * 60 * 1000;
+    const recentFailures = sorted.filter(
+      (l) => new Date(l.created_at).getTime() >= hourAgo &&
+        (l.status === "error" || /_failed$/.test(l.action || ""))
+    );
+    return { lastRun, next: getNextRun(), recent: sorted.slice(0, 8), recentFailures };
   }, [agentLogs]);
+
+  const hasAlert = recentFailures.length >= 3;
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <button className="w-full text-left">
-          <div className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-border bg-secondary/30 active:bg-secondary/50 transition">
+          <div className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border ${hasAlert ? "border-warning/50 bg-warning/10" : "border-border bg-secondary/30"} active:bg-secondary/50 transition`}>
             <div className="flex items-center gap-2 min-w-0">
-              <span className="relative flex h-2 w-2 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-60" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
-              </span>
-              <span className="text-[11px] text-muted-foreground truncate">
-                {lastRun ? `Last ${shortAgo(lastRun)}` : "No runs"} · Next {shortTime(next.time)}
+              {hasAlert ? (
+                <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0" />
+              ) : (
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-60" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+                </span>
+              )}
+              <span className={`text-[11px] truncate ${hasAlert ? "text-warning" : "text-muted-foreground"}`}>
+                {hasAlert
+                  ? `${recentFailures.length} failures in last hour`
+                  : `${lastRun ? `Last ${shortAgo(lastRun)}` : "No runs"} · Next ${shortTime(next.time)}`}
               </span>
             </div>
             <ChevronUp className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
