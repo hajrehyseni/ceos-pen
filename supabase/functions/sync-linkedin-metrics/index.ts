@@ -75,7 +75,6 @@ serve(async (req) => {
 
   await supabase.from("agent_log").insert({
     action: failed > 0 ? "sync_linkedin_metrics_partial" : "sync_linkedin_metrics",
-    status: failed === (posts?.length ?? 0) && failed > 0 ? "error" : "success",
     details: { synced, failed, total: posts?.length ?? 0, failures: failures.slice(0, 5) },
   });
 
