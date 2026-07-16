@@ -212,47 +212,75 @@ export function AnalyticsView({ posts, metrics, agentLogs }: AnalyticsViewProps)
 
       {/* Pillar × time heatmap */}
       <div className="card-surface p-5 space-y-3">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-          Pillar × Time Heatmap (avg engaged, last 30d)
-        </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr>
-                <th className="text-left py-2 pr-3 text-muted-foreground font-medium">Pillar</th>
-                {HOUR_BUCKETS.map((h) => (
-                  <th key={h} className="text-center py-2 px-2 text-muted-foreground font-medium">
-                    {h.toString().padStart(2, "0")}:00
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(PILLARS).map(([key, val]) => (
-                <tr key={key} className="border-t border-border/40">
-                  <td className="py-2 pr-3 text-foreground/90">{val.label}</td>
-                  {HOUR_BUCKETS.map((h) => {
-                    const cell = heatmap.find((c) => c.key === key && c.hour === h);
-                    const intensity = cell ? cell.avg / maxAvg : 0;
-                    const alpha = 0.08 + intensity * 0.72;
-                    return (
-                      <td key={h} className="text-center py-2 px-1">
-                        <div
-                          className="rounded-md py-2 text-foreground"
-                          style={{ background: `rgba(99, 102, 241, ${alpha.toFixed(2)})` }}
-                          title={`${cell?.count ?? 0} posts, avg ${Math.round(cell?.avg ?? 0)} engaged`}
-                        >
-                          {cell && cell.count > 0 ? Math.round(cell.avg) : "·"}
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            Pillar × Time Heatmap (avg engaged, last 30d)
+          </h3>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 rounded-full border border-border bg-secondary/40 p-0.5">
+              {(["all", "linkedin", "x", "bluesky", "threads"] as ChannelFilter[]).map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setChannel(c)}
+                  className={`text-[10px] px-2.5 py-1 rounded-full transition capitalize ${
+                    channel === c ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {c === "x" ? "X" : c}
+                </button>
               ))}
-            </tbody>
-          </table>
+            </div>
+            <Button size="sm" variant="outline" onClick={syncLinkedInMetrics} disabled={syncing} className="h-7 text-[11px]">
+              {syncing ? "Syncing…" : "Sync LinkedIn now"}
+            </Button>
+          </div>
         </div>
+        {channel !== "all" && channel !== "linkedin" ? (
+          <p className="text-xs text-muted-foreground py-6 text-center">
+            {channel === "x" ? "X" : channel[0].toUpperCase() + channel.slice(1)} metrics sync is not yet wired.
+            Connect the channel secrets and add a <code className="text-[10px]">sync-{channel}-metrics</code> cron to light this up.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr>
+                  <th className="text-left py-2 pr-3 text-muted-foreground font-medium">Pillar</th>
+                  {HOUR_BUCKETS.map((h) => (
+                    <th key={h} className="text-center py-2 px-2 text-muted-foreground font-medium">
+                      {h.toString().padStart(2, "0")}:00
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(PILLARS).map(([key, val]) => (
+                  <tr key={key} className="border-t border-border/40">
+                    <td className="py-2 pr-3 text-foreground/90">{val.label}</td>
+                    {HOUR_BUCKETS.map((h) => {
+                      const cell = heatmap.find((c) => c.key === key && c.hour === h);
+                      const intensity = cell ? cell.avg / maxAvg : 0;
+                      const alpha = 0.08 + intensity * 0.72;
+                      return (
+                        <td key={h} className="text-center py-2 px-1">
+                          <div
+                            className="rounded-md py-2 text-foreground"
+                            style={{ background: `rgba(99, 102, 241, ${alpha.toFixed(2)})` }}
+                            title={`${cell?.count ?? 0} posts, avg ${Math.round(cell?.avg ?? 0)} engaged`}
+                          >
+                            {cell && cell.count > 0 ? Math.round(cell.avg) : "·"}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
 
       {/* Hook leaderboard */}
       <div className="card-surface p-5 space-y-3">
